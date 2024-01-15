@@ -1,0 +1,24 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "xinterp"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dynamic = ["version"]
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+dev = [
+  "black",
+  "isort",
+  "pytest",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "xinterp.rust"
