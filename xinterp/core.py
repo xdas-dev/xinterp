@@ -16,8 +16,12 @@ def interp_int64(x, xp, fp, left=None, right=None):
     fp = np.asarray(fp, dtype="int64")
     if left is None:
         left = fp[0]
+    else:
+        left = np.int64(left)
     if right is None:
         right = fp[-1]
+    else:
+        right = np.int64(right)
     if not (x.ndim == 1 and xp.ndim == 1 and fp.ndim == 1):
         raise
     if not (xp.shape == fp.shape):
