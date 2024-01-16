@@ -1,1 +1,1 @@
-from .core import interp_datetime64, interp_int64
+from .core import interp_intlike, interp_int64

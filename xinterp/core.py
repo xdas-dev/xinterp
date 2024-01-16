@@ -3,9 +3,9 @@ import numpy as np
 from . import rust
 
 
-def interp_datetime64(x, xp, fp, left=None, right=None):
+def interp_intlike(x, xp, fp, left=None, right=None):
     """
-    One-dimensional linear interpolation for monotonically increasing 
+    One-dimensional linear interpolation for monotonically increasing
 
     Parameters
     ----------
@@ -25,10 +25,9 @@ def interp_datetime64(x, xp, fp, left=None, right=None):
     1-D array of datetime64
         The interpolated values, same length as x.x
     """
-    dtype = fp.dtype
-    if not np.issubdtype(dtype, np.datetime64):
-        raise
-    return interp_int64(x, xp, fp, left, right).astype(dtype)
+    if not x.dtype == xp.dtype:
+        raise ValueError("x and xp must have the same dtype")
+    return interp_int64(x, xp, fp, left, right).astype(fp.dtype)
 
 
 def interp_int64(x, xp, fp, left=None, right=None):
