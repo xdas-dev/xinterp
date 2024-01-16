@@ -67,7 +67,7 @@ class TestInterpDatetime64:
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
 
-        nat = left = np.datetime64("NaT")
+        nat = np.datetime64("NaT")
         f = interp_datetime64(x, xp, fp, left=nat, right=nat)
         f_expected = np.array(
             [nat, nat, 0, 1000, 2000, nat, nat], dtype="datetime64[s]"
