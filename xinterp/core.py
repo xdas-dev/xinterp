@@ -35,6 +35,8 @@ def interp_int64(x, xp, fp, left=None, right=None):
     x = np.asarray(x, dtype="int64")
     xp = np.asarray(xp, dtype="int64")
     fp = np.asarray(fp, dtype="int64")
+    if not np.all(np.diff(xp) > 0):
+        raise ValueError("xp must be strictly increasing")
     if left is None:
         left = fp[0]
     else:

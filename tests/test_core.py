@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from xinterp import interp_datetime64, interp_int64
 
@@ -38,6 +39,13 @@ class TestInterpInt64:
         f_expected = np.interp(x, xp, fp, left=-1, right=-2).astype("int")
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
+
+    def test_raise_if_not_strictly_incresing(self):
+        with pytest.raises(ValueError):
+            xp = np.array([0, -10, 20])
+            fp = np.array([0, 1000, 2000])
+            x = np.array([0, 5, 10, 15, 20])
+            f = interp_int64(x, xp, fp)
 
 
 class TestInterpDatetime64:
