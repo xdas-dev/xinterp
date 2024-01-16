@@ -11,11 +11,13 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         x: PyReadonlyArray1<'py, i64>,
         xp: PyReadonlyArray1<'py, i64>,
         fp: PyReadonlyArray1<'py, i64>,
+        left: i64,
+        right: i64,
     ) -> &'py PyArray1<i64> {
         let x = x.as_array();
         let xp = xp.as_array();
         let fp = fp.as_array();
-        let f = interp_ndarray(x, xp, fp);
+        let f = interp_ndarray(x, xp, fp, left, right);
         f.into_pyarray(py)
     }
 
@@ -29,13 +31,23 @@ mod interp {
         x: ArrayView1<i64>,
         xp: ArrayView1<i64>,
         fp: ArrayView1<i64>,
+        left: i64,
+        right: i64,
     ) -> Array1<i64> {
-        x.map(|x| interp_value(*x, xp, fp))
+        x.map(|x| interp_value(*x, xp, fp, left, right))
     }
 
-    fn interp_value(x: i64, xp: ArrayView1<i64>, fp: ArrayView1<i64>) -> i64 {
+    fn interp_value(
+        x: i64,
+        xp: ArrayView1<i64>,
+        fp: ArrayView1<i64>,
+        left: i64,
+        right: i64,
+    ) -> i64 {
         match xp.to_slice().unwrap().binary_search(&x) {
             Ok(index) => fp[index],
+            Err(0) => left,
+            Err(len) if len == xp.len() => right,
             Err(index) => linear(xp[index - 1], xp[index], fp[index - 1], fp[index], x),
         }
     }
@@ -46,7 +58,7 @@ mod interp {
         let f0 = i128::from(f0);
         let f1 = i128::from(f1);
         let x = i128::from(x);
-        let out = roundiv(f0 * (x1 - x) + f1 * (x - x0), (x1 - x0));
+        let out = roundiv(f0 * (x1 - x) + f1 * (x - x0), x1 - x0);
         i64::try_from(out).expect("cannot convert to i64")
     }
 

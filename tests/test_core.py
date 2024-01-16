@@ -3,8 +3,8 @@ import numpy as np
 from xinterp import interp_datetime64, interp_int64
 
 
-class TestCore:
-    def test_interp_int64(self):
+class TestInterpInt64:
+    def test_interpolation_accuracy(self):
         rng = np.random.default_rng(42)
         n = 1_000
         m = 10_000
@@ -13,13 +13,39 @@ class TestCore:
         fp = rng.integers(np.min(integers), np.max(integers), n)
         selected = np.arange(np.min(xp), np.max(xp) + 1)
         x = np.sort(rng.choice(selected, m, replace=False))
-        f_int = interp_int64(x, xp, fp)
-        f_float = np.rint(np.round(np.interp(x, xp, fp), 6)).astype("int")
-        assert np.all(f_int == f_float)
+        f = interp_int64(x, xp, fp)
+        f_expected = np.rint(np.round(np.interp(x, xp, fp), 6)).astype("int")
+        assert np.array_equal(f, f_expected)
+        assert f.dtype == f_expected.dtype
 
-    def test_interp_datetime64(self):
-        x = np.array([0, 5, 10, 15, 20])
+    def test_out_of_bound(self):
+        xp = np.array([0, 10, 20])
+        fp = np.array([0, 1000, 2000])
+        x = np.array([-10, -1, 0, 10, 20, 21, 30])
+
+        f = interp_int64(x, xp, fp)
+        f_expected = np.array([0, 0, 0, 1000, 2000, 2000, 2000])
+        assert np.array_equal(f, f_expected)
+        assert f.dtype == f_expected.dtype
+        f_expected = np.interp(x, xp, fp).astype("int")
+        assert np.array_equal(f, f_expected)
+        assert f.dtype == f_expected.dtype
+
+        f = interp_int64(x, xp, fp, left=-1, right=-2)
+        f_expected = np.array([-1, -1, 0, 1000, 2000, -2, -2])
+        assert np.array_equal(f, f_expected)
+        assert f.dtype == f_expected.dtype
+        f_expected = np.interp(x, xp, fp, left=-1, right=-2).astype("int")
+        assert np.array_equal(f, f_expected)
+        assert f.dtype == f_expected.dtype
+
+
+class TestInterpDatetime64:
+    def test_wrapping(self):
         xp = np.array([0, 10, 20])
         fp = np.array([0, 1000, 2000], dtype="datetime64[s]")
+        x = np.array([0, 5, 10, 15, 20])
         f = interp_datetime64(x, xp, fp)
-        assert np.all(f == np.array([0, 500, 1000, 1500, 2000], dtype="datetime64[s]"))
+        f_expected = np.array([0, 500, 1000, 1500, 2000], dtype="datetime64[s]")
+        assert np.array_equal(f, f_expected)
+        assert f.dtype == f_expected.dtype
