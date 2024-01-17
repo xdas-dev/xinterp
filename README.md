@@ -4,10 +4,8 @@ This package enables exact round to even datetime64 interpolation.
 
 ## Installation
 
-Clone the repository, enter the folder and:
-
 ```
-pip install -e .
+pip install xinterp
 ```
 
 ## Usage
