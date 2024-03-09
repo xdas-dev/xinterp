@@ -15,7 +15,7 @@ class TestInterpInt64:
         selected = np.arange(np.min(xp), np.max(xp) + 1)
         x = np.sort(rng.choice(selected, m, replace=False))
         f = interp_int64(x, xp, fp)
-        f_expected = np.rint(np.round(np.interp(x, xp, fp), 6)).astype("int")
+        f_expected = np.rint(np.round(np.interp(x, xp, fp), 6)).astype("int64")
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
 
@@ -25,18 +25,18 @@ class TestInterpInt64:
         x = np.array([-10, -1, 0, 10, 20, 21, 30])
 
         f = interp_int64(x, xp, fp)
-        f_expected = np.array([0, 0, 0, 1000, 2000, 2000, 2000])
+        f_expected = np.array([0, 0, 0, 1000, 2000, 2000, 2000], dtype="int64")
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
-        f_expected = np.interp(x, xp, fp).astype("int")
+        f_expected = np.interp(x, xp, fp).astype("int64")
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
 
         f = interp_int64(x, xp, fp, left=-1, right=-2)
-        f_expected = np.array([-1, -1, 0, 1000, 2000, -2, -2])
+        f_expected = np.array([-1, -1, 0, 1000, 2000, -2, -2], dtype="int64")
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
-        f_expected = np.interp(x, xp, fp, left=-1, right=-2).astype("int")
+        f_expected = np.interp(x, xp, fp, left=-1, right=-2).astype("int64")
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
 
