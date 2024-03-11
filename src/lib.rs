@@ -1,3 +1,22 @@
+ trait InterpValue {
+    type Output;
+    fn interp(self, xp: &[Self], fp: &[Self::Output]) -> Option<Self::Output>
+    where
+        Self: Sized;
+}
+
+impl InterpValue for u64 {
+    type Output = i64;
+    fn interp(self, xp: &[u64], fp: &[i64]) -> Option<i64> {
+        match xp.binary_search(&self) {
+            Ok(index) => Some(fp[index]),
+            Err(0) => None,
+            Err(len) if len == xp.len() => None,
+            Err(index) => Some(self.forward(xp[index - 1], xp[index], fp[index - 1], fp[index])),
+        }
+    }
+}
+
 trait Inverse {
     type Output;
     fn inverse_exact(
