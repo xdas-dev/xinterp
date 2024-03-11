@@ -1,82 +1,91 @@
-use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
-use pyo3::prelude::*;
-
-#[pymodule]
-fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
-    use interp::interp_ndarray;
-
-    #[pyfn(m)]
-    fn interp_int64<'py>(
-        py: Python<'py>,
-        x: PyReadonlyArray1<'py, i64>,
-        xp: PyReadonlyArray1<'py, i64>,
-        fp: PyReadonlyArray1<'py, i64>,
-        left: i64,
-        right: i64,
-    ) -> &'py PyArray1<i64> {
-        let x = x.as_array();
-        let xp = xp.as_array();
-        let fp = fp.as_array();
-        let f = interp_ndarray(x, xp, fp, left, right);
-        f.into_pyarray(py)
-    }
-
-    Ok(())
+trait Forward {
+    type Output;
+    fn forward(self, x0: Self, x1: Self, f0: Self::Output, f1: Self::Output) -> Self::Output;
 }
 
-mod interp {
-    use numpy::ndarray::{Array1, ArrayView1};
-
-    pub fn interp_ndarray(
-        x: ArrayView1<i64>,
-        xp: ArrayView1<i64>,
-        fp: ArrayView1<i64>,
-        left: i64,
-        right: i64,
-    ) -> Array1<i64> {
-        x.map(|x| interp_value(*x, xp, fp, left, right))
+impl Forward for u64 {
+    type Output = i64;
+    fn forward(self, x0: u64, x1: u64, f0: i64, f1: i64) -> i64 {
+        assert!(x0 < x1, "x1 must greater than x0");
+        assert!(x0 <= self && self <= x1, "x must be in [x0, x1]");
+        let num = (f0 as i128) * ((x1 - self) as i128) + (f1 as i128) * ((self - x0) as i128);
+        let den = (x1 - x0) as i128;
+        num.rounded_div(den) as i64
     }
+}
 
-    fn interp_value(
-        x: i64,
-        xp: ArrayView1<i64>,
-        fp: ArrayView1<i64>,
-        left: i64,
-        right: i64,
-    ) -> i64 {
-        match xp.to_slice().unwrap().binary_search(&x) {
-            Ok(index) => fp[index],
-            Err(0) => left,
-            Err(len) if len == xp.len() => right,
-            Err(index) => linear(xp[index - 1], xp[index], fp[index - 1], fp[index], x),
-        }
-    }
+trait RoundedDiv {
+    fn rounded_div(self, rhs: Self) -> Self;
+}
 
-    fn linear(x0: i64, x1: i64, f0: i64, f1: i64, x: i64) -> i64 {
-        let x0 = i128::from(x0);
-        let x1 = i128::from(x1);
-        let f0 = i128::from(f0);
-        let f1 = i128::from(f1);
-        let x = i128::from(x);
-        let out = roundiv(f0 * (x1 - x) + f1 * (x - x0), x1 - x0);
-        i64::try_from(out).expect("cannot convert to i64")
-    }
-
-    fn roundiv(n: i128, d: i128) -> i128 {
-        let s = n.signum() * d.signum();
-        let (n, d) = (n.abs(), d.abs());
-        let q = n / d;
-        let r = n % d;
-        if (r * 2) == d {
-            if q % 2 == 0 {
-                return s * q;
-            } else {
-                return s * (q + 1);
-            }
-        } else if (r * 2) > d {
-            return s * (q + 1);
+impl RoundedDiv for u128 {
+    fn rounded_div(self, rhs: u128) -> u128 {
+        let div = self / rhs;
+        let rem = self % rhs;
+        if rem * 2 < rhs {
+            div
+        } else if rem * 2 > rhs {
+            div + 1
         } else {
-            return s * q;
+            if div % 2 == 0 {
+                div
+            } else {
+                div + 1
+            }
         }
+    }
+}
+
+impl RoundedDiv for i128 {
+    fn rounded_div(self, rhs: i128) -> i128 {
+        let sgn = self.signum() * rhs.signum();
+        sgn * ((self.abs() as u128).rounded_div(rhs.abs() as u128) as i128)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_forward() {
+        assert_eq!(0.forward(0, 10, 20, 25), 20);
+        assert_eq!(1.forward(0, 10, 20, 25), 20);
+        assert_eq!(2.forward(0, 10, 20, 25), 21);
+        assert_eq!(3.forward(0, 10, 20, 25), 22);
+        assert_eq!(10.forward(0, 10, 20, 25), 25);
+        assert_eq!(0.forward(0, 10, -20, -25), -20);
+        assert_eq!(1.forward(0, 10, -20, -25), -20);
+        assert_eq!(2.forward(0, 10, -20, -25), -21);
+        assert_eq!(3.forward(0, 10, -20, -25), -22);
+        assert_eq!(10.forward(0, 10, -20, -25), -25);
+    }
+
+    #[test]
+    #[should_panic(expected = "x1 must greater than x0")]
+    fn test_forward_x1_less_than_x0() {
+        let _ = 0.forward(10, 0, 20, 25);
+    }
+
+    #[test]
+    #[should_panic(expected = "x must be in [x0, x1]")]
+    fn test_forward_x_out_of_range() {
+        let _ = 11.forward(0, 10, 20, 25);
+    }
+
+    #[test]
+    fn test_rounded_div() {
+        assert_eq!(0u128.rounded_div(2), 0);
+        assert_eq!(1u128.rounded_div(2), 0);
+        assert_eq!(2u128.rounded_div(2), 1);
+        assert_eq!(3u128.rounded_div(2), 2);
+        assert_eq!(1u128.rounded_div(3), 0);
+        assert_eq!(2u128.rounded_div(3), 1);
+        assert_eq!(-0i128.rounded_div(2), 0);
+        assert_eq!(-1i128.rounded_div(2), 0);
+        assert_eq!(-2i128.rounded_div(2), -1);
+        assert_eq!(-3i128.rounded_div(2), -2);
+        assert_eq!(-1i128.rounded_div(3), -0);
+        assert_eq!(-2i128.rounded_div(3), -1);
     }
 }
