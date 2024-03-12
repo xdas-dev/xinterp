@@ -3,7 +3,7 @@ import numpy as np
 from . import rust
 
 
-def interp_intlike(x, xp, fp, left=None, right=None):
+def forward_intlike(x, xp, fp):
     """
     One-dimensional linear interpolation for monotonically increasing
 
@@ -27,25 +27,17 @@ def interp_intlike(x, xp, fp, left=None, right=None):
     """
     if not x.dtype == xp.dtype:
         raise ValueError("x and xp must have the same dtype")
-    return interp_int64(x, xp, fp, left, right).astype(fp.dtype)
+    return forward(x, xp, fp).astype(fp.dtype)
 
 
-def interp_int64(x, xp, fp, left=None, right=None):
-    x = np.asarray(x, dtype="int64")
-    xp = np.asarray(xp, dtype="int64")
-    fp = np.asarray(fp, dtype="int64")
+def forward(x, xp, fp):
+    x = np.asarray(x, dtype="u8")
+    xp = np.asarray(xp, dtype="u8")
+    fp = np.asarray(fp, dtype="i8")
     if not np.all(np.diff(xp) > 0):
         raise ValueError("xp must be strictly increasing")
-    if left is None:
-        left = fp[0]
-    else:
-        left = np.int64(left)
-    if right is None:
-        right = fp[-1]
-    else:
-        right = np.int64(right)
     if not (x.ndim == 1 and xp.ndim == 1 and fp.ndim == 1):
         raise
     if not (xp.shape == fp.shape):
         raise
-    return rust.interp_int64(x, xp, fp, left, right)
+    return rust.forward(x, xp, fp)

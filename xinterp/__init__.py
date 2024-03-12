@@ -1,1 +1,1 @@
-from .core import interp_intlike, interp_int64
+from .core import forward_intlike, forward

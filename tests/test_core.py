@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from xinterp import interp_intlike, interp_int64
+from xinterp import forward_intlike, forward
 
 
 class TestInterpInt64:
@@ -9,12 +9,12 @@ class TestInterpInt64:
         rng = np.random.default_rng(42)
         n = 1_000
         m = 10_000
-        integers = np.arange(-32768, 32767)
+        integers = np.arange(0, 65536)
         xp = np.sort(rng.choice(integers, n, replace=False))
         fp = rng.integers(np.min(integers), np.max(integers), n)
         selected = np.arange(np.min(xp), np.max(xp) + 1)
         x = np.sort(rng.choice(selected, m, replace=False))
-        f = interp_int64(x, xp, fp)
+        f = forward(x, xp, fp)
         f_expected = np.rint(np.round(np.interp(x, xp, fp), 6)).astype("int")
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
@@ -24,7 +24,7 @@ class TestInterpInt64:
         fp = np.array([0, 1000, 2000])
         x = np.array([-10, -1, 0, 10, 20, 21, 30])
 
-        f = interp_int64(x, xp, fp)
+        f = forward(x, xp, fp)
         f_expected = np.array([0, 0, 0, 1000, 2000, 2000, 2000])
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
@@ -32,7 +32,7 @@ class TestInterpInt64:
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
 
-        f = interp_int64(x, xp, fp, left=-1, right=-2)
+        f = forward(x, xp, fp, left=-1, right=-2)
         f_expected = np.array([-1, -1, 0, 1000, 2000, -2, -2])
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
@@ -45,7 +45,7 @@ class TestInterpInt64:
             xp = np.array([0, -10, 20])
             fp = np.array([0, 1000, 2000])
             x = np.array([0, 5, 10, 15, 20])
-            f = interp_int64(x, xp, fp)
+            f = forward(x, xp, fp)
 
 
 class TestInterpIntLike:
@@ -53,7 +53,7 @@ class TestInterpIntLike:
         xp = np.array([0, 10, 20])
         fp = np.array([0, 1000, 2000], dtype="datetime64[s]")
         x = np.array([0, 5, 10, 15, 20])
-        f = interp_intlike(x, xp, fp)
+        f = forward_intlike(x, xp, fp)
         f_expected = np.array([0, 500, 1000, 1500, 2000], dtype="datetime64[s]")
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
@@ -62,7 +62,7 @@ class TestInterpIntLike:
         xp = np.array([0, 10, 20], dtype="datetime64[s]")
         fp = np.array([0, 1000, 2000])
         x = np.array([0, 5, 10, 15, 20], dtype="datetime64[s]")
-        f = interp_intlike(x, xp, fp)
+        f = forward_intlike(x, xp, fp)
         f_expected = np.array([0, 500, 1000, 1500, 2000])
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
@@ -72,12 +72,12 @@ class TestInterpIntLike:
         fp = np.array([0, 1000, 2000], dtype="datetime64[s]")
         x = np.array([-10, -1, 0, 10, 20, 21, 30])
 
-        f = interp_intlike(x, xp, fp)
+        f = forward_intlike(x, xp, fp)
         f_expected = np.array([0, 0, 0, 1000, 2000, 2000, 2000], dtype="datetime64[s]")
         assert np.array_equal(f, f_expected)
         assert f.dtype == f_expected.dtype
 
-        f = interp_intlike(
+        f = forward_intlike(
             x, xp, fp, left=np.datetime64(-1, "s"), right=np.datetime64(-2, "s")
         )
         f_expected = np.array([-1, -1, 0, 1000, 2000, -2, -2], dtype="datetime64[s]")
@@ -85,7 +85,7 @@ class TestInterpIntLike:
         assert f.dtype == f_expected.dtype
 
         nat = np.datetime64("NaT")
-        f = interp_intlike(x, xp, fp, left=nat, right=nat)
+        f = forward_intlike(x, xp, fp, left=nat, right=nat)
         f_expected = np.array(
             [nat, nat, 0, 1000, 2000, nat, nat], dtype="datetime64[s]"
         )
@@ -97,4 +97,4 @@ class TestInterpIntLike:
             xp = np.array([0, 10, 20], dtype="datetime64[s]")
             fp = np.array([0, 1000, 2000])
             x = np.array([0, 5, 10, 15, 20])
-            f = interp_intlike(x, xp, fp)
+            f = forward_intlike(x, xp, fp)
