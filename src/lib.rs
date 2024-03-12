@@ -1,21 +1,52 @@
- trait InterpValue {
-    type Output;
-    fn interp(self, xp: &[Self], fp: &[Self::Output]) -> Option<Self::Output>
-    where
-        Self: Sized;
+struct Coord<T, U>
+where
+    T: Forward,
+    U: Inverse,
+{
+    indices: Vec<T>,
+    values: Vec<U>,
 }
 
-impl InterpValue for u64 {
+trait Coordable<RHS> {
+    type Output;
+    fn forward(self, rhs: RHS) -> Option<Self::Output>;
+}
+
+impl Coordable<u64> for Coord<u64, i64> {
     type Output = i64;
-    fn interp(self, xp: &[u64], fp: &[i64]) -> Option<i64> {
-        match xp.binary_search(&self) {
-            Ok(index) => Some(fp[index]),
+    fn forward(self, rhs: u64) -> Option<i64> {
+        match self.indices.binary_search(&rhs) {
+            Ok(index) => Some(self.values[index]),
             Err(0) => None,
-            Err(len) if len == xp.len() => None,
-            Err(index) => Some(self.forward(xp[index - 1], xp[index], fp[index - 1], fp[index])),
+            Err(len) if len == self.indices.len() => None,
+            Err(index) => Some(rhs.forward(
+                self.indices[index - 1],
+                self.indices[index],
+                self.values[index - 1],
+                self.values[index],
+            )),
         }
     }
 }
+
+// trait InterpValue {
+//     type Output;
+//     fn interp(self, xp: &[Self], fp: &[Self::Output]) -> Option<Self::Output>
+//     where
+//         Self: Sized;
+// }
+
+// impl InterpValue for u64 {
+//     type Output = i64;
+//     fn interp(self, xp: &[u64], fp: &[i64]) -> Option<i64> {
+//         match xp.binary_search(&self) {
+//             Ok(index) => Some(fp[index]),
+//             Err(0) => None,
+//             Err(len) if len == xp.len() => None,
+//             Err(index) => Some(self.forward(xp[index - 1], xp[index], fp[index - 1], fp[index])),
+//         }
+//     }
+// }
 
 trait Inverse {
     type Output;
