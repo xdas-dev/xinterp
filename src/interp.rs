@@ -13,6 +13,7 @@ where
     F: Inverse<X>,
 {
     pub fn new(xp: Vec<X>, fp: Vec<F>) -> Interp<X, F> {
+        assert!(xp.len() == fp.len(), "xp and fp must have same length");
         let forward = xp.windows(2).all(|pair| pair[0] < pair[1]);
         let inverse = fp.windows(2).all(|pair| pair[0] < pair[1]);
         Interp {
