@@ -116,32 +116,24 @@ trait Inverse<X>: Copy + Ord {
 
 impl Inverse<u64> for i64 {
     fn inverse_exact(self, x0: u64, x1: u64, f0: i64, f1: i64) -> Option<u64> {
-        assert!(f0 < f1, "f1 must greater than f0");
-        assert!(f0 <= self && self <= f1, "f must be in [f0, f1]");
         f1.checked_sub(f0).expect("f range is to big");
         let num = (x0 as i128) * ((f1 - self) as i128) + (x1 as i128) * ((self - f0) as i128);
         let den = (f1 - f0) as i128;
         num.div_exact(den).map(|x| x as u64)
     }
     fn inverse_round(self, x0: u64, x1: u64, f0: i64, f1: i64) -> u64 {
-        assert!(f0 < f1, "f1 must greater than f0");
-        assert!(f0 <= self && self <= f1, "f must be in [f0, f1]");
         f1.checked_sub(f0).expect("f range is to big");
         let num = (x0 as i128) * ((f1 - self) as i128) + (x1 as i128) * ((self - f0) as i128);
         let den = (f1 - f0) as i128;
         num.div_round(den) as u64
     }
     fn inverse_ffill(self, x0: u64, x1: u64, f0: i64, f1: i64) -> u64 {
-        assert!(f0 < f1, "f1 must greater than f0");
-        assert!(f0 <= self && self <= f1, "f must be in [f0, f1]");
         f1.checked_sub(f0).expect("f range is to big");
         let num = (x0 as i128) * ((f1 - self) as i128) + (x1 as i128) * ((self - f0) as i128);
         let den = (f1 - f0) as i128;
         num.div_ffill(den) as u64
     }
     fn inverse_bfill(self, x0: u64, x1: u64, f0: i64, f1: i64) -> u64 {
-        assert!(f0 < f1, "f1 must greater than f0");
-        assert!(f0 <= self && self <= f1, "f must be in [f0, f1]");
         f1.checked_sub(f0).expect("f range is to big");
         let num = (x0 as i128) * ((f1 - self) as i128) + (x1 as i128) * ((self - f0) as i128);
         let den = (f1 - f0) as i128;
@@ -241,177 +233,202 @@ impl DivOp for i128 {
 mod tests {
     use super::*;
     #[test]
-    fn test_coord() {
-        let coord = Interp::new(vec![0, 10], vec![20, 25]);
-        assert!(coord.forward);
-        assert!(coord.inverse);
+    fn test_initialization() {
+        let interp = Interp::new(vec![0, 10], vec![20, 25]);
+        assert!(interp.forward);
+        assert!(interp.inverse);
 
-        assert_eq!(coord.forward(0), Some(20));
-        assert_eq!(coord.forward(1), Some(20));
-        assert_eq!(coord.forward(2), Some(21));
-        assert_eq!(coord.forward(3), Some(22));
-        assert_eq!(coord.forward(11), None);
-
-        let coord = Interp::new(vec![0, 5], vec![20, 30]);
-        assert!(coord.forward);
-        assert!(coord.inverse);
-
-        assert_eq!(coord.inverse_exact(19), None);
-        assert_eq!(coord.inverse_exact(20), Some(0));
-        assert_eq!(coord.inverse_exact(21), None);
-        assert_eq!(coord.inverse_exact(22), Some(1));
-        assert_eq!(coord.inverse_exact(23), None);
-        assert_eq!(coord.inverse_exact(24), Some(2));
-        assert_eq!(coord.inverse_exact(25), None);
-        assert_eq!(coord.inverse_exact(26), Some(3));
-        assert_eq!(coord.inverse_exact(30), Some(5));
-        assert_eq!(coord.inverse_exact(31), None);
-
-        assert_eq!(coord.inverse_round(19), None);
-        assert_eq!(coord.inverse_round(20), Some(0));
-        assert_eq!(coord.inverse_round(21), Some(0));
-        assert_eq!(coord.inverse_round(22), Some(1));
-        assert_eq!(coord.inverse_round(23), Some(2));
-        assert_eq!(coord.inverse_round(24), Some(2));
-        assert_eq!(coord.inverse_round(25), Some(2));
-        assert_eq!(coord.inverse_round(26), Some(3));
-        assert_eq!(coord.inverse_round(30), Some(5));
-        assert_eq!(coord.inverse_round(31), None);
-
-        assert_eq!(coord.inverse_ffill(19), None);
-        assert_eq!(coord.inverse_ffill(20), Some(0));
-        assert_eq!(coord.inverse_ffill(21), Some(0));
-        assert_eq!(coord.inverse_ffill(22), Some(1));
-        assert_eq!(coord.inverse_ffill(23), Some(1));
-        assert_eq!(coord.inverse_ffill(24), Some(2));
-        assert_eq!(coord.inverse_ffill(25), Some(2));
-        assert_eq!(coord.inverse_ffill(26), Some(3));
-        assert_eq!(coord.inverse_ffill(30), Some(5));
-        assert_eq!(coord.inverse_ffill(31), None);
-
-        assert_eq!(coord.inverse_bfill(19), None);
-        assert_eq!(coord.inverse_bfill(20), Some(0));
-        assert_eq!(coord.inverse_bfill(21), Some(1));
-        assert_eq!(coord.inverse_bfill(22), Some(1));
-        assert_eq!(coord.inverse_bfill(23), Some(2));
-        assert_eq!(coord.inverse_bfill(24), Some(2));
-        assert_eq!(coord.inverse_bfill(25), Some(3));
-        assert_eq!(coord.inverse_bfill(26), Some(3));
-        assert_eq!(coord.inverse_bfill(30), Some(5));
-        assert_eq!(coord.inverse_bfill(31), None);
-    }
-
-    #[test]
-    fn test_inverse_exact() {
-        assert_eq!(10.inverse_exact(0, 5, 10, 20), Some(0));
-        assert_eq!(11.inverse_exact(0, 5, 10, 20), None);
-        assert_eq!(12.inverse_exact(0, 5, 10, 20), Some(1));
-        assert_eq!(13.inverse_exact(0, 5, 10, 20), None);
-        assert_eq!(20.inverse_exact(0, 5, 10, 20), Some(5));
-
-        assert_eq!((-20).inverse_exact(0, 5, -20, -10), Some(0));
-        assert_eq!((-19).inverse_exact(0, 5, -20, -10), None);
-        assert_eq!((-18).inverse_exact(0, 5, -20, -10), Some(1));
-        assert_eq!((-17).inverse_exact(0, 5, -20, -10), None);
-        assert_eq!((-10).inverse_exact(0, 5, -20, -10), Some(5));
-
-        let x1 = u64::MAX - 3;
-        let f1 = (x1 / 2) as i64;
-        assert_eq!(0.inverse_exact(0, x1, 0, f1), Some(0));
-        assert_eq!(f1.inverse_exact(0, x1, 0, f1), Some(x1));
-        assert_eq!((f1 / 2).inverse_exact(0, x1, 0, f1), Some(x1 / 2));
-    }
-
-    #[test]
-    fn test_inverse_round() {
-        assert_eq!(10.inverse_round(0, 5, 10, 20), 0);
-        assert_eq!(11.inverse_round(0, 5, 10, 20), 0);
-        assert_eq!(12.inverse_round(0, 5, 10, 20), 1);
-        assert_eq!(13.inverse_round(0, 5, 10, 20), 2);
-        assert_eq!(20.inverse_round(0, 5, 10, 20), 5);
-
-        assert_eq!((-20).inverse_round(0, 5, -20, -10), 0);
-        assert_eq!((-19).inverse_round(0, 5, -20, -10), 0);
-        assert_eq!((-18).inverse_round(0, 5, -20, -10), 1);
-        assert_eq!((-17).inverse_round(0, 5, -20, -10), 2);
-        assert_eq!((-10).inverse_round(0, 5, -20, -10), 5);
-
-        let x1 = u64::MAX - 3;
-        let f1 = (x1 / 2) as i64;
-        assert_eq!(0.inverse_round(0, x1, 0, f1), 0);
-        assert_eq!(f1.inverse_round(0, x1, 0, f1), x1);
-        assert_eq!((f1 / 2).inverse_round(0, x1, 0, f1), x1 / 2);
-    }
-
-    #[test]
-    fn test_inverse_ffill() {
-        assert_eq!(10.inverse_ffill(0, 5, 10, 20), 0);
-        assert_eq!(11.inverse_ffill(0, 5, 10, 20), 0);
-        assert_eq!(12.inverse_ffill(0, 5, 10, 20), 1);
-        assert_eq!(13.inverse_ffill(0, 5, 10, 20), 1);
-        assert_eq!(20.inverse_ffill(0, 5, 10, 20), 5);
-
-        assert_eq!((-20).inverse_ffill(0, 5, -20, -10), 0);
-        assert_eq!((-19).inverse_ffill(0, 5, -20, -10), 0);
-        assert_eq!((-18).inverse_ffill(0, 5, -20, -10), 1);
-        assert_eq!((-17).inverse_ffill(0, 5, -20, -10), 1);
-        assert_eq!((-10).inverse_ffill(0, 5, -20, -10), 5);
-
-        let x1 = u64::MAX - 3;
-        let f1 = (x1 / 2) as i64;
-        assert_eq!(0.inverse_ffill(0, x1, 0, f1), 0);
-        assert_eq!(f1.inverse_ffill(0, x1, 0, f1), x1);
-        assert_eq!((f1 / 2).inverse_ffill(0, x1, 0, f1), x1 / 2);
-    }
-
-    #[test]
-    fn test_inverse_bfill() {
-        assert_eq!(10.inverse_bfill(0, 5, 10, 20), 0);
-        assert_eq!(11.inverse_bfill(0, 5, 10, 20), 1);
-        assert_eq!(12.inverse_bfill(0, 5, 10, 20), 1);
-        assert_eq!(13.inverse_bfill(0, 5, 10, 20), 2);
-        assert_eq!(20.inverse_bfill(0, 5, 10, 20), 5);
-
-        assert_eq!((-20).inverse_bfill(0, 5, -20, -10), 0);
-        assert_eq!((-19).inverse_bfill(0, 5, -20, -10), 1);
-        assert_eq!((-18).inverse_bfill(0, 5, -20, -10), 1);
-        assert_eq!((-17).inverse_bfill(0, 5, -20, -10), 2);
-        assert_eq!((-10).inverse_bfill(0, 5, -20, -10), 5);
-
-        let x1 = u64::MAX - 3;
-        let f1 = (x1 / 2) as i64;
-        assert_eq!(0.inverse_bfill(0, x1, 0, f1), 0);
-        assert_eq!(f1.inverse_bfill(0, x1, 0, f1), x1);
-        assert_eq!((f1 / 2).inverse_bfill(0, x1, 0, f1), x1 / 2);
+        let interp = Interp::new(vec![0, 10], vec![-20, -25]);
+        assert!(interp.forward);
+        assert!(!interp.inverse);
     }
 
     #[test]
     fn test_forward() {
-        assert_eq!(0.forward(0, 10, 20, 25), 20);
-        assert_eq!(1.forward(0, 10, 20, 25), 20);
-        assert_eq!(2.forward(0, 10, 20, 25), 21);
-        assert_eq!(3.forward(0, 10, 20, 25), 22);
-        assert_eq!(10.forward(0, 10, 20, 25), 25);
-        assert_eq!(0.forward(0, 10, -20, -25), -20);
-        assert_eq!(1.forward(0, 10, -20, -25), -20);
-        assert_eq!(2.forward(0, 10, -20, -25), -21);
-        assert_eq!(3.forward(0, 10, -20, -25), -22);
-        assert_eq!(10.forward(0, 10, -20, -25), -25);
-        assert_eq!(0.forward(0, u64::MAX, i64::MIN, i64::MAX), i64::MIN);
-        assert_eq!(u64::MAX.forward(0, u64::MAX, i64::MIN, i64::MAX), i64::MAX);
-        assert_eq!((u64::MAX / 2).forward(0, u64::MAX, i64::MIN, i64::MAX), -1);
+        let interp = Interp::new(vec![0, 10], vec![20, 25]);
+        assert_eq!(interp.forward(0), Some(20));
+        assert_eq!(interp.forward(1), Some(20));
+        assert_eq!(interp.forward(2), Some(21));
+        assert_eq!(interp.forward(3), Some(22));
+        assert_eq!(interp.forward(11), None);
     }
 
     #[test]
-    #[should_panic(expected = "x1 must greater than x0")]
-    fn test_forward_x1_less_than_x0() {
-        let _ = 0.forward(10, 0, 20, 25);
+    fn test_forward_negative() {
+        let interp = Interp::new(vec![0, 10], vec![-20, -25]);
+        assert_eq!(interp.forward(0), Some(-20));
+        assert_eq!(interp.forward(1), Some(-20));
+        assert_eq!(interp.forward(2), Some(-21));
+        assert_eq!(interp.forward(3), Some(-22));
+        assert_eq!(interp.forward(11), None);
     }
 
     #[test]
-    #[should_panic(expected = "x must be in [x0, x1]")]
-    fn test_forward_x_out_of_range() {
-        let _ = 11.forward(0, 10, 20, 25);
+    fn test_inverse_exact() {
+        let interp = Interp::new(vec![0, 5], vec![20, 30]);
+        assert_eq!(interp.inverse_exact(19), None);
+        assert_eq!(interp.inverse_exact(20), Some(0));
+        assert_eq!(interp.inverse_exact(21), None);
+        assert_eq!(interp.inverse_exact(22), Some(1));
+        assert_eq!(interp.inverse_exact(23), None);
+        assert_eq!(interp.inverse_exact(24), Some(2));
+        assert_eq!(interp.inverse_exact(25), None);
+        assert_eq!(interp.inverse_exact(26), Some(3));
+        assert_eq!(interp.inverse_exact(30), Some(5));
+        assert_eq!(interp.inverse_exact(31), None);
+    }
+
+    #[test]
+    fn test_inverse_round() {
+        let interp = Interp::new(vec![0, 5], vec![20, 30]);
+        assert_eq!(interp.inverse_round(19), None);
+        assert_eq!(interp.inverse_round(20), Some(0));
+        assert_eq!(interp.inverse_round(21), Some(0));
+        assert_eq!(interp.inverse_round(22), Some(1));
+        assert_eq!(interp.inverse_round(23), Some(2));
+        assert_eq!(interp.inverse_round(24), Some(2));
+        assert_eq!(interp.inverse_round(25), Some(2));
+        assert_eq!(interp.inverse_round(26), Some(3));
+        assert_eq!(interp.inverse_round(30), Some(5));
+        assert_eq!(interp.inverse_round(31), None);
+    }
+
+    #[test]
+    fn test_inverse_ffill() {
+        let interp = Interp::new(vec![0, 5], vec![20, 30]);
+        assert_eq!(interp.inverse_ffill(19), None);
+        assert_eq!(interp.inverse_ffill(20), Some(0));
+        assert_eq!(interp.inverse_ffill(21), Some(0));
+        assert_eq!(interp.inverse_ffill(22), Some(1));
+        assert_eq!(interp.inverse_ffill(23), Some(1));
+        assert_eq!(interp.inverse_ffill(24), Some(2));
+        assert_eq!(interp.inverse_ffill(25), Some(2));
+        assert_eq!(interp.inverse_ffill(26), Some(3));
+        assert_eq!(interp.inverse_ffill(30), Some(5));
+        assert_eq!(interp.inverse_ffill(31), None);
+    }
+
+    #[test]
+    fn test_inverse_bfill() {
+        let interp = Interp::new(vec![0, 5], vec![20, 30]);
+        assert_eq!(interp.inverse_bfill(19), None);
+        assert_eq!(interp.inverse_bfill(20), Some(0));
+        assert_eq!(interp.inverse_bfill(21), Some(1));
+        assert_eq!(interp.inverse_bfill(22), Some(1));
+        assert_eq!(interp.inverse_bfill(23), Some(2));
+        assert_eq!(interp.inverse_bfill(24), Some(2));
+        assert_eq!(interp.inverse_bfill(25), Some(3));
+        assert_eq!(interp.inverse_bfill(26), Some(3));
+        assert_eq!(interp.inverse_bfill(30), Some(5));
+        assert_eq!(interp.inverse_bfill(31), None);
+    }
+
+    #[test]
+    fn test_inverse_exact_negative() {
+        let interp = Interp::new(vec![0, 5], vec![-30, -20]);
+        assert_eq!(interp.inverse_exact(-31), None);
+        assert_eq!(interp.inverse_exact(-30), Some(0));
+        assert_eq!(interp.inverse_exact(-29), None);
+        assert_eq!(interp.inverse_exact(-28), Some(1));
+        assert_eq!(interp.inverse_exact(-27), None);
+        assert_eq!(interp.inverse_exact(-26), Some(2));
+        assert_eq!(interp.inverse_exact(-25), None);
+        assert_eq!(interp.inverse_exact(-24), Some(3));
+        assert_eq!(interp.inverse_exact(-20), Some(5));
+        assert_eq!(interp.inverse_exact(-19), None);
+    }
+
+    #[test]
+    fn test_inverse_round_negative() {
+        let interp = Interp::new(vec![0, 5], vec![-30, -20]);
+        assert_eq!(interp.inverse_round(-31), None);
+        assert_eq!(interp.inverse_round(-30), Some(0));
+        assert_eq!(interp.inverse_round(-29), Some(0));
+        assert_eq!(interp.inverse_round(-28), Some(1));
+        assert_eq!(interp.inverse_round(-27), Some(2));
+        assert_eq!(interp.inverse_round(-26), Some(2));
+        assert_eq!(interp.inverse_round(-25), Some(2));
+        assert_eq!(interp.inverse_round(-24), Some(3));
+        assert_eq!(interp.inverse_round(-20), Some(5));
+        assert_eq!(interp.inverse_round(-19), None);
+    }
+
+    #[test]
+    fn test_inverse_ffill_negative() {
+        let interp = Interp::new(vec![0, 5], vec![-30, -20]);
+        assert_eq!(interp.inverse_ffill(-31), None);
+        assert_eq!(interp.inverse_ffill(-30), Some(0));
+        assert_eq!(interp.inverse_ffill(-29), Some(0));
+        assert_eq!(interp.inverse_ffill(-28), Some(1));
+        assert_eq!(interp.inverse_ffill(-27), Some(1));
+        assert_eq!(interp.inverse_ffill(-26), Some(2));
+        assert_eq!(interp.inverse_ffill(-25), Some(2));
+        assert_eq!(interp.inverse_ffill(-24), Some(3));
+        assert_eq!(interp.inverse_ffill(-20), Some(5));
+        assert_eq!(interp.inverse_ffill(-19), None);
+    }
+
+    #[test]
+    fn test_inverse_bfill_negative() {
+        let interp = Interp::new(vec![0, 5], vec![-30, -20]);
+        assert_eq!(interp.inverse_bfill(-31), None);
+        assert_eq!(interp.inverse_bfill(-30), Some(0));
+        assert_eq!(interp.inverse_bfill(-29), Some(1));
+        assert_eq!(interp.inverse_bfill(-28), Some(1));
+        assert_eq!(interp.inverse_bfill(-27), Some(2));
+        assert_eq!(interp.inverse_bfill(-26), Some(2));
+        assert_eq!(interp.inverse_bfill(-25), Some(3));
+        assert_eq!(interp.inverse_bfill(-24), Some(3));
+        assert_eq!(interp.inverse_bfill(-20), Some(5));
+        assert_eq!(interp.inverse_bfill(-19), None);
+    }
+
+    #[test]
+    fn test_inverse_exact_big_numbers() {
+        let x1 = u64::MAX - 3;
+        let f1 = (x1 / 2) as i64;
+        let interp = Interp::new(vec![0, x1], vec![0, f1]);
+        assert_eq!(interp.inverse_exact(0), Some(0));
+        assert_eq!(interp.inverse_exact(f1), Some(x1));
+        assert_eq!(interp.inverse_exact(f1 / 2), Some(x1 / 2));
+    }
+
+    #[test]
+    fn test_forward_big_numbers() {
+        let interp = Interp::new(vec![0, u64::MAX], vec![i64::MIN, i64::MAX]);
+        assert_eq!(interp.forward(0), Some(i64::MIN));
+        assert_eq!(interp.forward(u64::MAX), Some(i64::MAX));
+        assert_eq!(interp.forward((u64::MAX / 2)), Some(-1));
+    }
+
+    #[test]
+    fn test_inverse_round_big_numbers() {
+        let x1 = u64::MAX - 3;
+        let f1 = (x1 / 2) as i64;
+        let interp = Interp::new(vec![0, x1], vec![0, f1]);
+        assert_eq!(interp.inverse_round(0), Some(0));
+        assert_eq!(interp.inverse_round(f1), Some(x1));
+        assert_eq!(interp.inverse_round(f1 / 2), Some(x1 / 2));
+    }
+
+    #[test]
+    fn test_inverse_ffill_big_numbers() {
+        let x1 = u64::MAX - 3;
+        let f1 = (x1 / 2) as i64;
+        let interp = Interp::new(vec![0, x1], vec![0, f1]);
+        assert_eq!(interp.inverse_ffill(0), Some(0));
+        assert_eq!(interp.inverse_ffill(f1), Some(x1));
+        assert_eq!(interp.inverse_ffill(f1 / 2), Some(x1 / 2));
+    }
+
+    #[test]
+    fn test_inverse_bfill_big_numbers() {
+        let x1 = u64::MAX - 3;
+        let f1 = (x1 / 2) as i64;
+        let interp = Interp::new(vec![0, x1], vec![0, f1]);
+        assert_eq!(interp.inverse_bfill(0), Some(0));
+        assert_eq!(interp.inverse_bfill(f1), Some(x1));
+        assert_eq!(interp.inverse_bfill(f1 / 2), Some(x1 / 2));
     }
 
     #[test]
