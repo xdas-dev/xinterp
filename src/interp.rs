@@ -1,4 +1,4 @@
-use crate::transform::{Forward, Inverse};
+use crate::schemes::{Forward, Inverse};
 
 pub struct Interp<X, F> {
     xp: Vec<X>,

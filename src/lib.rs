@@ -1,6 +1,6 @@
 pub mod divop;
 pub mod interp;
-pub mod transform;
+pub mod schemes;
 
 use crate::interp::Interp;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
