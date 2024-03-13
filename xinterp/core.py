@@ -34,6 +34,8 @@ def forward(x, xp, fp):
         raise ValueError("xp and fp must have the same shape")
     if not x.dtype == xp.dtype:
         raise ValueError("x and xp must have the same dtype")
+    if not np.all(xp > 0):
+        raise ValueError("xp values must be positive")
     if not np.all(np.diff(xp) > 0):
         raise ValueError("xp must be strictly increasing")
     return rust.forward(x.astype("u8"), xp.astype("u8"), fp.astype("i8")).astype(
@@ -51,6 +53,8 @@ def inverse(f, xp, fp, method=None):
         raise ValueError("xp and fp must have the same shape")
     if not f.dtype == fp.dtype:
         raise ValueError("f and fp must have the same dtype")
+    if not np.all(xp > 0):
+        raise ValueError("xp values must be positive")
     if not np.all(np.diff(fp) > 0):
         raise ValueError("fp must be strictly increasing")
     if method is None:

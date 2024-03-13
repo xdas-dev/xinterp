@@ -9,7 +9,7 @@ class TestForward:
         rng = np.random.default_rng(42)
         n = 1_000
         m = 10_000
-        integers = np.arange(0, 65536)
+        integers = np.arange(0, 65_535)
         xp = np.sort(rng.choice(integers, n, replace=False))
         fp = rng.integers(np.min(integers), np.max(integers), n)
         selected = np.arange(np.min(xp), np.max(xp) + 1)
@@ -55,9 +55,17 @@ class TestForward:
 
 class TestInverse:
     def test_(self):
-        xp = np.array([0, 10])
-        fp = np.array([0, 1000])
+        xp = np.array([0, 10, 20])
+        fp = np.array([0, 1000, 3000])
         assert inverse([0], xp, fp) == 0
+        assert inverse([100], xp, fp) == 1
+        assert inverse([1000], xp, fp) == 10
+        assert inverse([2000], xp, fp) == 15
+        assert inverse([3000], xp, fp) == 20
         assert inverse([1], xp, fp, method="nearest") == 0
         assert inverse([1], xp, fp, method="ffill") == 0
         assert inverse([1], xp, fp, method="bfill") == 1
+        assert inverse([4000], xp, fp, method="nearest") == 20
+        assert inverse([-1000], xp, fp, method="nearest") == 0
+        assert inverse([4000], xp, fp, method="ffill") == 20
+        assert inverse([-1000], xp, fp, method="bfill") == 0
