@@ -5,7 +5,7 @@ pub mod schemes;
 use crate::interp::{Interp, InterpError};
 use numpy::ndarray::Array1;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
-use pyo3::exceptions::{PyIndexError, PyValueError};
+use pyo3::exceptions::{PyValueError};
 use pyo3::prelude::*;
 
 #[pymodule]
@@ -27,13 +27,13 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
             match interp.forward(*index) {
                 Ok(result) => *value = result,
                 Err(InterpError::NotStrictlyIncreasing) => {
-                    return Err(PyIndexError::new_err("indices must be strictly increasing"))
+                    return Err(PyValueError::new_err("indices must be strictly increasing"))
                 }
                 Err(InterpError::OutOfBounds) => {
-                    return Err(PyIndexError::new_err("index out of bounds"))
+                    return Err(PyValueError::new_err("index out of bounds"))
                 }
                 Err(InterpError::NotFound) => {
-                    return Err(PyIndexError::new_err("index note found"))
+                    return Err(PyValueError::new_err("index note found"))
                 }
             }
         }
