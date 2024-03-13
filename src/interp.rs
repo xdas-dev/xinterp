@@ -1,5 +1,10 @@
 use crate::schemes::{Forward, Inverse};
 
+pub enum InterpError {
+    IndexOutOfBounds,
+    IndexNotFound,
+}
+
 pub struct Interp<X, F> {
     xp: Vec<X>,
     fp: Vec<F>,
