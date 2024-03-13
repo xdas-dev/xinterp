@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from xinterp import forward
+from xinterp import forward, inverse
 
 
 class TestForward:
@@ -51,3 +51,13 @@ class TestForward:
             fp = np.array([0, 1000, 2000])
             x = np.array([0, 5, 10, 15, 20])
             f = forward(x, xp, fp)
+
+
+class TestInverse:
+    def test_(self):
+        xp = np.array([0, 10])
+        fp = np.array([0, 1000])
+        assert inverse([0], xp, fp) == 0
+        assert inverse([1], xp, fp, method="nearest") == 0
+        assert inverse([1], xp, fp, method="ffill") == 0
+        assert inverse([1], xp, fp, method="bfill") == 1
