@@ -70,8 +70,8 @@ where
         if self.inversable {
             match self.fp.binary_search(&rhs) {
                 Ok(index) => Ok(self.xp[index]),
-                Err(0) => Err(InterpError::OutOfBounds),
-                Err(len) if len == self.xp.len() => Err(InterpError::OutOfBounds),
+                Err(0) => Ok(self.xp[0]),
+                Err(len) if len == self.xp.len() => Ok(self.xp[len - 1]),
                 Err(index) => Ok(rhs.inverse_round(
                     self.xp[index - 1],
                     self.xp[index],
@@ -88,7 +88,7 @@ where
             match self.fp.binary_search(&rhs) {
                 Ok(index) => Ok(self.xp[index]),
                 Err(0) => Err(InterpError::OutOfBounds),
-                Err(len) if len == self.xp.len() => Err(InterpError::OutOfBounds),
+                Err(len) if len == self.xp.len() => Ok(self.xp[len - 1]),
                 Err(index) => Ok(rhs.inverse_ffill(
                     self.xp[index - 1],
                     self.xp[index],
@@ -104,7 +104,7 @@ where
         if self.inversable {
             match self.fp.binary_search(&rhs) {
                 Ok(index) => Ok(self.xp[index]),
-                Err(0) => Err(InterpError::OutOfBounds),
+                Err(0) => Ok(self.xp[0]),
                 Err(len) if len == self.xp.len() => Err(InterpError::OutOfBounds),
                 Err(index) => Ok(rhs.inverse_bfill(
                     self.xp[index - 1],
@@ -184,7 +184,7 @@ mod tests {
         let indices: Vec<u64> = vec![0, 5];
         let values: Vec<i64> = vec![20, 30];
         let interp = Interp::new(indices, values);
-        assert_eq!(interp.inverse_round(19), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse_round(19), Ok(0));
         assert_eq!(interp.inverse_round(20), Ok(0));
         assert_eq!(interp.inverse_round(21), Ok(0));
         assert_eq!(interp.inverse_round(22), Ok(1));
@@ -193,7 +193,7 @@ mod tests {
         assert_eq!(interp.inverse_round(25), Ok(2));
         assert_eq!(interp.inverse_round(26), Ok(3));
         assert_eq!(interp.inverse_round(30), Ok(5));
-        assert_eq!(interp.inverse_round(31), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse_round(31), Ok(5));
     }
 
     #[test]
@@ -210,7 +210,7 @@ mod tests {
         assert_eq!(interp.inverse_ffill(25), Ok(2));
         assert_eq!(interp.inverse_ffill(26), Ok(3));
         assert_eq!(interp.inverse_ffill(30), Ok(5));
-        assert_eq!(interp.inverse_ffill(31), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse_ffill(31), Ok(5));
     }
 
     #[test]
@@ -218,7 +218,7 @@ mod tests {
         let indices: Vec<u64> = vec![0, 5];
         let values: Vec<i64> = vec![20, 30];
         let interp = Interp::new(indices, values);
-        assert_eq!(interp.inverse_bfill(19), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse_bfill(19), Ok(0));
         assert_eq!(interp.inverse_bfill(20), Ok(0));
         assert_eq!(interp.inverse_bfill(21), Ok(1));
         assert_eq!(interp.inverse_bfill(22), Ok(1));
@@ -252,7 +252,7 @@ mod tests {
         let indices: Vec<u64> = vec![0, 5];
         let values: Vec<i64> = vec![-30, -20];
         let interp = Interp::new(indices, values);
-        assert_eq!(interp.inverse_round(-31), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse_round(-31), Ok(0));
         assert_eq!(interp.inverse_round(-30), Ok(0));
         assert_eq!(interp.inverse_round(-29), Ok(0));
         assert_eq!(interp.inverse_round(-28), Ok(1));
@@ -261,7 +261,7 @@ mod tests {
         assert_eq!(interp.inverse_round(-25), Ok(2));
         assert_eq!(interp.inverse_round(-24), Ok(3));
         assert_eq!(interp.inverse_round(-20), Ok(5));
-        assert_eq!(interp.inverse_round(-19), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse_round(-19), Ok(5));
     }
 
     #[test]
@@ -278,7 +278,7 @@ mod tests {
         assert_eq!(interp.inverse_ffill(-25), Ok(2));
         assert_eq!(interp.inverse_ffill(-24), Ok(3));
         assert_eq!(interp.inverse_ffill(-20), Ok(5));
-        assert_eq!(interp.inverse_ffill(-19), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse_ffill(-19), Ok(5));
     }
 
     #[test]
@@ -286,7 +286,7 @@ mod tests {
         let indices: Vec<u64> = vec![0, 5];
         let values: Vec<i64> = vec![-30, -20];
         let interp = Interp::new(indices, values);
-        assert_eq!(interp.inverse_bfill(-31), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse_bfill(-31), Ok(0));
         assert_eq!(interp.inverse_bfill(-30), Ok(0));
         assert_eq!(interp.inverse_bfill(-29), Ok(1));
         assert_eq!(interp.inverse_bfill(-28), Ok(1));
