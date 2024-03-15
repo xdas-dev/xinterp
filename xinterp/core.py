@@ -95,8 +95,10 @@ def check(xp, fp, x=None, f=None):
     fp = np.asarray(fp)
     if not (xp.ndim == 1 and fp.ndim == 1):
         raise ValueError("xp and fp must be 1D")
-    if not (xp.shape == fp.shape):
-        raise ValueError("xp and fp must have the same shape")
+    if not (len(xp) == len(fp)):
+        raise ValueError("xp and fp must have the same length")
+    if not (len(xp) > 1 and len(fp) > 1):
+        raise ValueError("xp and fp must have at least two elements")
     if not np.issubdtype(xp.dtype, np.integer):
         raise ValueError("xp must have integer dtype")
     if not np.all(xp >= 0):

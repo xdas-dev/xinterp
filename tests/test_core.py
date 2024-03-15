@@ -5,6 +5,57 @@ from xinterp import forward, inverse
 
 
 class TestForward:
+    def test_raises_not_1D(self):
+        with pytest.raises(ValueError, match="x must be 1D"):
+            forward([[1]], [0, 2], [3, 5])
+        with pytest.raises(ValueError, match="xp and fp must be 1D"):
+            forward([1], [[0, 2]], [3, 5])
+        with pytest.raises(ValueError, match="xp and fp must be 1D"):
+            forward([1], [0, 2], [[3, 5]])
+
+    def test_raises_shape_mismatch(self):
+        with pytest.raises(ValueError, match="xp and fp must have the same length"):
+            forward([1], [0, 2, 5], [3, 5])
+
+    def test_raises_only_one_element(self):
+        with pytest.raises(
+            ValueError, match="xp and fp must have at least two elements"
+        ):
+            forward([1], [0], [3])
+
+    def test_raises_xp_not_integer(self):
+        with pytest.raises(ValueError, match="xp must have integer dtype"):
+            forward([1], [0.0, 2.0], [3, 5])
+
+    def test_raises_not_positive(self):
+        with pytest.raises(ValueError, match="xp values must be positive"):
+            forward([1], [-1, 2], [3, 5])
+        with pytest.raises(ValueError, match="x values must be positive"):
+            forward([-1], [1, 2], [3, 5])
+
+    def test_raises_dtype_mismatch(self):
+        xp = np.array([0, 10, 20], dtype="u4")
+        fp = np.array([0, 1000, 2000])
+        x = np.array([0, 5, 10, 15, 20])
+        with pytest.raises(ValueError, match="x and xp must have the same dtype"):
+            f = forward([1.0], [0, 2], [3, 5])
+
+    def test_raises_not_strictly_incresing(self):
+        with pytest.raises(ValueError, match="xp must be strictly increasing"):
+            forward([1], [2, 0], [3, 5])
+
+    def test_raises_out_of_bounds(self):
+        with pytest.raises(ValueError, match="x out of bounds"):
+            forward([0], [1, 2], [3, 5])
+        with pytest.raises(ValueError, match="x out of bounds"):
+            forward([3], [1, 2], [3, 5])
+
+    def test_type_handling(self):
+        assert forward([1], [0, 2], [3, 5]).dtype == "i8"
+        assert forward([1], [0, 2], np.array([3, 5], "M8[s]")).dtype == "M8[s]"
+        assert forward([1], [0, 2], np.array([3, 5], "f4")).dtype == "f4"
+        assert forward(np.array([1], "u2"), np.array([0, 2], "u2"), [3, 5])[0] == 4
+
     def test_interpolation_accuracy_int(self):
         rng = np.random.default_rng(42)
         n = 1_000
@@ -32,39 +83,6 @@ class TestForward:
         f_expected = np.interp(x, xp, fp)
         assert np.allclose(f, f_expected)
         assert f.dtype == f_expected.dtype
-
-    def test_out_of_bound(self):
-        xp = np.array([0, 10])
-        fp = np.array([0, 1000])
-        x = np.array([-1])
-        with pytest.raises(ValueError):
-            forward(x, xp, fp)
-        x = np.array([11])
-        with pytest.raises(ValueError):
-            forward(x, xp, fp)
-
-    def test_not_strictly_incresing(self):
-        xp = np.array([10, 0])
-        fp = np.array([0, 1000])
-        x = np.array([5])
-        with pytest.raises(ValueError):
-            forward(x, xp, fp)
-
-    def test_f_is_datetime(self):
-        xp = np.array([0, 10, 20])
-        fp = np.array([0, 1000, 2000], dtype="datetime64[s]")
-        x = np.array([0, 5, 10, 15, 20])
-        f = forward(x, xp, fp)
-        f_expected = np.array([0, 500, 1000, 1500, 2000], dtype="datetime64[s]")
-        assert np.array_equal(f, f_expected)
-        assert f.dtype == f_expected.dtype
-
-    def test_dtype_mismatch(self):
-        with pytest.raises(ValueError):
-            xp = np.array([0, 10, 20], dtype="datetime64[s]")
-            fp = np.array([0, 1000, 2000])
-            x = np.array([0, 5, 10, 15, 20])
-            f = forward(x, xp, fp)
 
 
 class TestInverse:
