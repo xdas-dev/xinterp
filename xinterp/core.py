@@ -42,9 +42,9 @@ def inverse(f, xp, fp, method=None):
     fp : 1-D sequence of floats, integers or datetime64s
         The values of the data points, must be strictly increasing.
     method : str or None, optional
-        The method to use for inexact mathces:
-        - None (default): only exact matches, raises otherwise
-        - "nearest": nearest matches
+        The method to use for inexact matches:
+        - None (default): exact match, raises otherwise
+        - "nearest": nearest match
         - "ffill": propagate previous index forward
         - "bfill": propagate next index backward
 
