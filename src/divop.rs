@@ -1,5 +1,6 @@
 //! Integer division with different rounding rules
 
+#[derive(Clone, Copy)]
 pub enum Method {
     None,
     Nearest,

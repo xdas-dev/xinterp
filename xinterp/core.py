@@ -58,40 +58,31 @@ def inverse(f, xp, fp, method=None):
     KeyError
         If any value of `f` is outside the `fp` range.
     """
-    if method is None:
-        return _inverse_exact(xp, fp, f=f)
-    elif method is "nearest":
-        return _inverse_round(xp, fp, f=f)
-    elif method is "ffill":
-        return _inverse_ffill(xp, fp, f=f)
-    elif method is "bfill":
-        return _inverse_bfill(xp, fp, f=f)
-    else:
-        raise ValueError("valid methods are: None, 'nearest', 'ffill' and 'bfill'")
+    return _inverse(xp, fp, f=f, method=method)
 
 
 def wraps(func_int, func_float):
-    def func(xp, fp, *, x=None, f=None):
+    def func(xp, fp, *, x=None, f=None, **kwargs):
         xp, fp, x, f, isscalar = check(xp, fp, x, f)
         if np.issubdtype(fp.dtype, np.integer) or np.issubdtype(
             fp.dtype, np.datetime64
         ):
             if x is not None:
-                out = func_int(x.astype("u8"), xp.astype("u8"), fp.astype("i8")).astype(
-                    fp.dtype
-                )
+                out = func_int(
+                    x.astype("u8"), xp.astype("u8"), fp.astype("i8"), **kwargs
+                ).astype(fp.dtype)
             if f is not None:
-                out = func_int(f.astype("i8"), xp.astype("u8"), fp.astype("i8")).astype(
-                    xp.dtype
-                )
+                out = func_int(
+                    f.astype("i8"), xp.astype("u8"), fp.astype("i8"), **kwargs
+                ).astype(xp.dtype)
         elif np.issubdtype(fp.dtype, np.floating):
             if x is not None:
                 out = func_float(
-                    x.astype("u8"), xp.astype("u8"), fp.astype("f8")
+                    x.astype("u8"), xp.astype("u8"), fp.astype("f8"), **kwargs
                 ).astype(fp.dtype)
             if f is not None:
                 out = func_float(
-                    f.astype("f8"), xp.astype("u8"), fp.astype("f8")
+                    f.astype("f8"), xp.astype("u8"), fp.astype("f8"), **kwargs
                 ).astype(xp.dtype)
         else:
             raise ValueError("fp dtype must be either integer, floating or datetime")
@@ -150,7 +141,4 @@ def check(xp, fp, x=None, f=None):
 
 
 _forward = wraps(rust.forward_int, rust.forward_float)
-_inverse_exact = wraps(rust.inverse_exact_int, rust.inverse_exact_float)
-_inverse_round = wraps(rust.inverse_round_int, rust.inverse_round_float)
-_inverse_ffill = wraps(rust.inverse_ffill_int, rust.inverse_ffill_float)
-_inverse_bfill = wraps(rust.inverse_bfill_int, rust.inverse_bfill_float)
+_inverse = wraps(rust.inverse_int, rust.inverse_float)
