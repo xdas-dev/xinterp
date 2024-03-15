@@ -144,12 +144,12 @@ class TestInverse:
 
     def test_raises_not_found(self):
         assert inverse([5], [0, 2], [3, 7]) == 1
-        with pytest.raises(ValueError, match="f not found"):
+        with pytest.raises(KeyError, match="f not found"):
             inverse([4], [0, 2], [3, 7])
         assert inverse([5.0], [0, 2], [3.0, 7.0]) == 1
-        with pytest.raises(ValueError, match="f not found"):
+        with pytest.raises(KeyError, match="f not found"):
             inverse([4.0], [0, 2], [3.0, 7.0])
-        with pytest.raises(ValueError, match="f not found"):
+        with pytest.raises(KeyError, match="f not found"):
             inverse([5.5], [0, 2], [3.0, 7.0])
         inverse([5.0 + 1e-16], [0, 2], [3.0, 7.0])
         inverse([5.0 - 1e-16], [0, 2], [3.0, 7.0])
@@ -223,7 +223,7 @@ class TestInverse:
         for x, f in cases:
             assert inverse([f], xp, fp)[0] == x
         for f in range(21, 50, 2):
-            with pytest.raises(ValueError, match="f not found"):
+            with pytest.raises(KeyError, match="f not found"):
                 inverse([f], xp, fp)
         cases = [(0, 21), (2, 23), (2, 25), (4, 27), (4, 29), (6, 31), (6, 33), (8, 35)]
         for x, f in cases:
@@ -242,7 +242,7 @@ class TestInverse:
         for x, f in cases:
             assert inverse([float(f)], xp, fp)[0] == x
         for f in range(21, 50, 2):
-            with pytest.raises(ValueError, match="f not found"):
+            with pytest.raises(KeyError, match="f not found"):
                 inverse([float(f)], xp, fp)
         cases = [(0, 21), (2, 23), (2, 25), (4, 27), (4, 29), (6, 31), (6, 33), (8, 35)]
         for x, f in cases:

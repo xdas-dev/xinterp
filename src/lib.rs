@@ -33,7 +33,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::OutOfBounds) => {
                     return Err(PyIndexError::new_err("x out of bounds"))
                 }
-                Err(InterpError::NotFound) => return Err(PyValueError::new_err("x not found")),
+                Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
             }
         }
         Ok(f.into_pyarray(py))
@@ -60,7 +60,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::OutOfBounds) => {
                     return Err(PyIndexError::new_err("x out of bounds"))
                 }
-                Err(InterpError::NotFound) => return Err(PyValueError::new_err("x not found")),
+                Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
             }
         }
         Ok(f.into_pyarray(py))
@@ -86,7 +86,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::OutOfBounds) => {
                     return Err(PyKeyError::new_err("f out of bounds"))
                 }
-                Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
+                Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
         }
         Ok(x.into_pyarray(py))
@@ -113,7 +113,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::OutOfBounds) => {
                     return Err(PyKeyError::new_err("f out of bounds"))
                 }
-                Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
+                Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
         }
         Ok(x.into_pyarray(py))
@@ -139,7 +139,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::OutOfBounds) => {
                     return Err(PyKeyError::new_err("f out of bounds"))
                 }
-                Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
+                Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
         }
         Ok(x.into_pyarray(py))
@@ -166,7 +166,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::OutOfBounds) => {
                     return Err(PyKeyError::new_err("f out of bounds"))
                 }
-                Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
+                Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
         }
         Ok(x.into_pyarray(py))
@@ -192,7 +192,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::OutOfBounds) => {
                     return Err(PyKeyError::new_err("f out of bounds"))
                 }
-                Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
+                Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
         }
         Ok(x.into_pyarray(py))
@@ -219,7 +219,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::OutOfBounds) => {
                     return Err(PyKeyError::new_err("f out of bounds"))
                 }
-                Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
+                Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
         }
         Ok(x.into_pyarray(py))
@@ -245,7 +245,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::OutOfBounds) => {
                     return Err(PyKeyError::new_err("f out of bounds"))
                 }
-                Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
+                Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
         }
         Ok(x.into_pyarray(py))
@@ -272,7 +272,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::OutOfBounds) => {
                     return Err(PyKeyError::new_err("f out of bounds"))
                 }
-                Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
+                Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
         }
         Ok(x.into_pyarray(py))
