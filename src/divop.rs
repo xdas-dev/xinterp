@@ -101,7 +101,31 @@ impl DivOp for u128 {
 
 impl DivOp for i128 {
     fn div(self, rhs: i128, method: Method) -> Option<i128> {
-        todo!();
+        let div = self.div_euclid(rhs);
+        let rem = self.rem_euclid(rhs);
+        match method {
+            Method::None => {
+                if rem == 0 {
+                    Some(div)
+                } else {
+                    None
+                }
+            }
+            Method::Nearest => {
+                let sgn = self.signum() * rhs.signum();
+                self.unsigned_abs()
+                    .div(rhs.unsigned_abs(), Method::Nearest)
+                    .map(|div| sgn * div as i128)
+            }
+            Method::ForwardFill => Some(div),
+            Method::BackwardFill => {
+                if rem == 0 {
+                    Some(div)
+                } else {
+                    Some(div + 1)
+                }
+            }
+        }
     }
     fn div_exact(self, rhs: i128) -> Option<i128> {
         let div = self.div_euclid(rhs);
@@ -114,7 +138,7 @@ impl DivOp for i128 {
     }
     fn div_round(self, rhs: i128) -> i128 {
         let sgn = self.signum() * rhs.signum();
-        sgn * ((self.unsigned_abs()).div_round(rhs.unsigned_abs()) as i128)
+        sgn * self.unsigned_abs().div_round(rhs.unsigned_abs()) as i128
     }
     fn div_ffill(self, rhs: i128) -> i128 {
         self.div_euclid(rhs)
@@ -142,11 +166,11 @@ mod tests {
         assert_eq!(3u128.div(2, Method::None), None);
         assert_eq!(1u128.div(3, Method::None), None);
         assert_eq!(2u128.div(3, Method::None), None);
-        assert_eq!((-1i128).div_exact(2), None);
-        assert_eq!((-2i128).div_exact(2), Some(-1));
-        assert_eq!((-3i128).div_exact(2), None);
-        assert_eq!((-1i128).div_exact(3), None);
-        assert_eq!((-2i128).div_exact(3), None);
+        assert_eq!((-1i128).div(2, Method::None), None);
+        assert_eq!((-2i128).div(2, Method::None), Some(-1));
+        assert_eq!((-3i128).div(2, Method::None), None);
+        assert_eq!((-1i128).div(3, Method::None), None);
+        assert_eq!((-2i128).div(3, Method::None), None);
     }
 
     #[test]
@@ -157,11 +181,11 @@ mod tests {
         assert_eq!(3u128.div(2, Method::Nearest), Some(2));
         assert_eq!(1u128.div(3, Method::Nearest), Some(0));
         assert_eq!(2u128.div(3, Method::Nearest), Some(1));
-        assert_eq!((-1i128).div_round(2), 0);
-        assert_eq!((-2i128).div_round(2), -1);
-        assert_eq!((-3i128).div_round(2), -2);
-        assert_eq!((-1i128).div_round(3), 0);
-        assert_eq!((-2i128).div_round(3), -1);
+        assert_eq!((-1i128).div(2, Method::Nearest), Some(0));
+        assert_eq!((-2i128).div(2, Method::Nearest), Some(-1));
+        assert_eq!((-3i128).div(2, Method::Nearest), Some(-2));
+        assert_eq!((-1i128).div(3, Method::Nearest), Some(0));
+        assert_eq!((-2i128).div(3, Method::Nearest), Some(-1));
     }
 
     #[test]
@@ -172,11 +196,11 @@ mod tests {
         assert_eq!(3u128.div(2, Method::ForwardFill), Some(1));
         assert_eq!(1u128.div(3, Method::ForwardFill), Some(0));
         assert_eq!(2u128.div(3, Method::ForwardFill), Some(0));
-        assert_eq!((-1i128).div_ffill(2), -1);
-        assert_eq!((-2i128).div_ffill(2), -1);
-        assert_eq!((-3i128).div_ffill(2), -2);
-        assert_eq!((-1i128).div_ffill(3), -1);
-        assert_eq!((-2i128).div_ffill(3), -1);
+        assert_eq!((-1i128).div(2, Method::ForwardFill), Some(-1));
+        assert_eq!((-2i128).div(2, Method::ForwardFill), Some(-1));
+        assert_eq!((-3i128).div(2, Method::ForwardFill), Some(-2));
+        assert_eq!((-1i128).div(3, Method::ForwardFill), Some(-1));
+        assert_eq!((-2i128).div(3, Method::ForwardFill), Some(-1));
     }
 
     #[test]
@@ -187,10 +211,10 @@ mod tests {
         assert_eq!(3u128.div(2, Method::BackwardFill), Some(2));
         assert_eq!(1u128.div(3, Method::BackwardFill), Some(1));
         assert_eq!(2u128.div(3, Method::BackwardFill), Some(1));
-        assert_eq!((-1i128).div_bfill(2), 0);
-        assert_eq!((-2i128).div_bfill(2), -1);
-        assert_eq!((-3i128).div_bfill(2), -1);
-        assert_eq!((-1i128).div_bfill(3), 0);
-        assert_eq!((-2i128).div_bfill(3), 0);
+        assert_eq!((-1i128).div(2, Method::BackwardFill), Some(0));
+        assert_eq!((-2i128).div(2, Method::BackwardFill), Some(-1));
+        assert_eq!((-3i128).div(2, Method::BackwardFill), Some(-1));
+        assert_eq!((-1i128).div(3, Method::BackwardFill), Some(0));
+        assert_eq!((-2i128).div(3, Method::BackwardFill), Some(0));
     }
 }
