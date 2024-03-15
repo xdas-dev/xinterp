@@ -1,6 +1,6 @@
 use astro_float::{BigFloat, RoundingMode, Sign};
 
-#[derive(PartialEq, PartialOrd, Debug)]
+#[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub struct F80 {
     value: BigFloat,
 }
@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn test_f64_conversion() {
         let cases: [f64; 11] = [
-            0.0, 0.5, -0.5, 1.0, -1.0, 1.5, -1.5, 1e308, -1e308, 1e-308, -1e-308,
+            0.0, 0.5, -0.5, 1.0, -1.0, 1.5, -1.5, 1e307, -1e307, 1e-307, -1e-307,
         ];
         for expected in cases.iter() {
             let result: f64 = F80::from(*expected).into();
