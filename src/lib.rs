@@ -1,4 +1,5 @@
 pub mod divop;
+pub mod extended;
 pub mod interp;
 pub mod schemes;
 
