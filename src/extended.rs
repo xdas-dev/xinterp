@@ -1,4 +1,5 @@
 use astro_float::{BigFloat, RoundingMode, Sign};
+use std::cmp::Ordering;
 
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub struct F80 {
@@ -90,7 +91,7 @@ impl From<F80> for u64 {
 }
 impl Eq for F80 {}
 impl Ord for F80 {
-    fn cmp(&self, other: &F80) -> std::cmp::Ordering {
+    fn cmp(&self, other: &F80) -> Ordering {
         self.partial_cmp(other).unwrap()
     }
 }
@@ -115,27 +116,24 @@ impl F80 {
             value: self.value.div(&rhs.value, 64, RoundingMode::ToEven),
         }
     }
-    // pub fn round(&self) -> F80 {
-    //     let abs = self.value.abs();
-    //     let one = BigFloat::from_f64(1.0, 64);
-    //     let cmp = abs.cmp(&one);
-    //     match cmp {
-    //         Some(Sign::Pos) => F80 {
-    //             value: self.value.round(0, RoundingMode::ToEven),
-    //         },
-    //         Some(0) => self,
-    //         Some(Sign::Neg) => F80 {
-    //             value: self.value.round(0, RoundingMode::ToEven),
-    //         },
-    //         None => self,
-    //     }
-    //     // if .cmp(&BigFloat::from_f64(1.0, 64)).unwrap() {
-
-    //     // }/
-    //     // F80 {
-    //     //     value: self.value,
-    //     // }
-    // }
+    pub fn rem(&self, rhs: &F80) -> F80 {
+        F80 {
+            value: self.value.rem(&rhs.value),
+        }
+    }
+    pub fn round(&self) -> F80 {
+        let floor = self.floor();
+        let ceil = self.ceil();
+        let mid = floor.add(&ceil).div(&F80::from(2));
+        match self.cmp(&mid) {
+            Ordering::Less => floor,
+            Ordering::Equal => match floor.rem(&F80::from(2)).eq(&F80::from(0)) {
+                true => floor,
+                false => ceil,
+            },
+            Ordering::Greater => ceil,
+        }
+    }
     pub fn floor(&self) -> F80 {
         F80 {
             value: self.value.floor(),
@@ -147,27 +145,6 @@ impl F80 {
         }
     }
 }
-
-// trait RoundTiesEven {
-//     fn round_ties_even(self) -> f64;
-// }
-// impl RoundTiesEven for f64 {
-//     fn round_ties_even(self) -> f64 {
-//         let mut rounded = self.round();
-//         if (self - rounded).abs() == 0.5 {
-//             if rounded % 2.0 == 0.0 {
-//                 return rounded;
-//             } else {
-//                 if self > 0.0 {
-//                     rounded -= 1.0;
-//                 } else {
-//                     rounded += 1.0;
-//                 }
-//             }
-//         }
-//         rounded
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
@@ -195,6 +172,29 @@ mod tests {
         for expected in cases.iter() {
             let result: f64 = F80::from(*expected).into();
             assert_eq!(result, *expected);
+        }
+    }
+
+    #[test]
+    fn test_rounding() {
+        let cases: [(f64, u64); 13] = [
+            (0.0, 0),
+            (0.1, 0),
+            (0.4, 0),
+            (0.5, 0),
+            (0.6, 1),
+            (0.9, 1),
+            (1.0, 1),
+            (1.1, 1),
+            (1.4, 1),
+            (1.5, 2),
+            (1.6, 2),
+            (1.9, 2),
+            (2.0, 2),
+        ];
+        for (input, expected) in cases {
+            let result: u64 = F80::from(input).round().into();
+            assert_eq!(result, expected)
         }
     }
 }

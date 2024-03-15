@@ -320,7 +320,7 @@ mod tests {
         assert_eq!(interp.inverse_round(F80::from(20.0)), Ok(0));
         assert_eq!(interp.inverse_round(F80::from(20.1)), Ok(0));
         assert_eq!(interp.inverse_round(F80::from(20.9)), Ok(0));
-        assert_eq!(interp.inverse_round(F80::from(21.1)), Ok(0));
+        assert_eq!(interp.inverse_round(F80::from(21.1)), Ok(1));
         assert_eq!(interp.inverse_round(F80::from(22.0)), Ok(1));
         assert_eq!(interp.inverse_round(F80::from(29.9)), Ok(5));
         assert_eq!(interp.inverse_round(F80::from(30.0)), Ok(5));
