@@ -33,9 +33,17 @@ class TestForward:
         with pytest.raises(ValueError, match="x values must be positive"):
             forward([-1], [1, 2], [3, 5])
 
-    def test_raises_dtype_mismatch(self):
-        with pytest.raises(ValueError, match="x and xp must have the same dtype"):
-            forward([1.0], [0, 2], [3, 5])
+    def test_dtype_matching(self):
+        forward([1.0], [0, 2], [3, 5]) == 4
+        forward([1], [0, 2], [3.0, 5.0]) == 4.0
+        forward(np.array([1], dtype="M8[s]"), [0, 2], [3.0, 5.0]) == 4.0
+        forward(np.array([1], dtype="M8[s]"), [0, 2], [3, 5]) == 4
+        forward([1.0], [0, 2], np.array([3, 5], dtype="M8[s]")) == np.array(
+            [4], dtype="M8[s]"
+        )
+        forward([1], [0, 2], np.array([3, 5], dtype="M8[s]")) == np.array(
+            [4], dtype="M8[s]"
+        )
 
     def test_raises_not_strictly_incresing(self):
         with pytest.raises(ValueError, match="xp must be strictly increasing"):
@@ -120,9 +128,13 @@ class TestInverse:
         with pytest.raises(ValueError, match="xp values must be positive"):
             inverse([4], [-1, 2], [3, 5])
 
-    def test_raises_dtype_mismatch(self):
-        with pytest.raises(ValueError, match="f and fp must have the same dtype"):
-            inverse([4.0], [0, 2], [3, 5])
+    def test_dtype_matching(self):
+        inverse([4.0], [0, 2], [3, 5]) == 1
+        inverse([4], [0, 2], [3.0, 5.0]) == 1
+        inverse(np.array([4], dtype="M8[s]"), [0, 2], [3.0, 5.0]) == 1
+        inverse(np.array([4], dtype="M8[s]"), [0, 2], [3, 5]) == 1
+        inverse([4.0], [0, 2], np.array([3, 5], dtype="M8[s]")) == 1
+        inverse([4], [0, 2], np.array([3, 5], dtype="M8[s]")) == 1
 
     def test_raises_not_strictly_incresing(self):
         with pytest.raises(ValueError, match="fp must be strictly increasing"):

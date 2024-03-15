@@ -419,4 +419,12 @@ mod tests {
         assert_eq!(interp.inverse_bfill(i64::MAX), Ok(u64::MAX));
         assert_eq!(interp.inverse_bfill(0), Ok(u64::MAX / 2 + 1));
     }
+
+    #[test]
+    fn test_something() {
+        let xp: Vec<u64> = vec![0, 8];
+        let fp: Vec<F80> = vec![F80::from(100.0), F80::from(900.0)];
+        let interp = Interp::new(xp, fp);
+        assert_eq!(interp.inverse_round(F80::from(175.0)), Ok(1))
+    }
 }

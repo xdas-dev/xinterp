@@ -119,7 +119,7 @@ def check(xp, fp, x=None, f=None):
     if (x is None) == (f is None):
         raise ValueError("either x or f must be provided")
     if x is not None:
-        x = np.asarray(x)
+        x = np.asarray(x).astype(xp.dtype)
         if x.ndim == 0:
             x = x.reshape(1)
             isscalar = True
@@ -134,7 +134,7 @@ def check(xp, fp, x=None, f=None):
         if not np.all(xp[1:] > xp[:-1]):
             raise ValueError("xp must be strictly increasing")
     if f is not None:
-        f = np.asarray(f)
+        f = np.asarray(f).astype(fp.dtype)
         if f.ndim == 0:
             f = f.reshape(1)
             isscalar = True
