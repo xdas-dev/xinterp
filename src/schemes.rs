@@ -1,7 +1,20 @@
+//! Forward and backward linear interpolation schemes between two points (x0, f0) and (x1, f1) for
+//! different data types (x is u64, f is either i64 or f64).
+//! 
+//! When the values are integers, operations are performed with u128 integers to avoid overflow.
+//! Signed integers are mapped on positive values to avoid potential subtraction overflows 
+//! (subtracting i64::MIN to i64::MAX overflows whereas it does not for u64).
+//! 
+//! When the values are floats, operations are performed with extended-precision floats to
+//! avoid big numbers inacurracies (integers above 2^53 cannot accurately be represented by f64 
+//! which is problematic when using nanosecond datetime64 timestamps). 
+
 use crate::divop::DivOp;
 use crate::extended::F80;
 
+/// Implements forward scheme from index to value.
 pub trait Forward<F>: Clone + Ord {
+    /// Estimate f at index x between two points (x0, f0) and (x1, f1)
     fn forward(self, x0: Self, x1: Self, f0: F, f1: F) -> F;
 }
 impl Forward<u64> for u64 {
@@ -29,10 +42,22 @@ impl Forward<F80> for u64 {
     }
 }
 
+/// Implements inverse scheme from value to index.
 pub trait Inverse<X>: Clone + Ord {
+    /// Retrieve index x that corresonds to value f between two points (x0, f0) and (x1, f1).
+    /// Returns x if f falls exactly on it or `None` otherwise.
     fn inverse_exact(self, x0: X, x1: X, f0: Self, f1: Self) -> Option<X>;
+
+    /// Retrieve index x that corresonds to value f between two points (x0, f0) and (x1, f1).
+    /// Rounds to the nearest x using round ties to even rule.
     fn inverse_round(self, x0: X, x1: X, f0: Self, f1: Self) -> X;
+
+    /// Retrieve index x that corresonds to value f between two points (x0, f0) and (x1, f1).
+    /// Rounds to the previous x using forward-fill rule.
     fn inverse_ffill(self, x0: X, x1: X, f0: Self, f1: Self) -> X;
+
+    /// Retrieve index x that corresonds to value f between two points (x0, f0) and (x1, f1).
+    /// Rounds to the next x using backward-fill rule.
     fn inverse_bfill(self, x0: X, x1: X, f0: Self, f1: Self) -> X;
 }
 impl Inverse<u64> for u64 {
@@ -119,7 +144,10 @@ impl Inverse<u64> for F80 {
     }
 }
 
+/// Implements signed to unsinged translation. Used to apply schemes on unsigned integers where
+/// no overflow can occur.
 pub trait ToUnsigned<U> {
+    /// Converts signed to unsinged by subtracting the minimum negative signed integer.  
     fn to_unsigned(self) -> U;
 }
 impl ToUnsigned<u64> for i64 {
@@ -128,7 +156,9 @@ impl ToUnsigned<u64> for i64 {
     }
 }
 
+/// Implements unsinged to singed translation. Used to retreive applied schemes on unsigned integers.
 pub trait ToSigned<S> {
+    /// Converts unsigned to singed by adding the minimum negative signed integer.  
     fn to_signed(self) -> S;
 }
 impl ToSigned<i64> for u64 {

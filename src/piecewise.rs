@@ -1,3 +1,5 @@
+//! Forward and inverse interpolation on piecewise linear functions.
+
 use crate::schemes::{Forward, Inverse};
 
 #[derive(PartialEq, Debug)]

@@ -1,10 +1,10 @@
 pub mod divop;
 pub mod extended;
-pub mod interp;
+pub mod piecewise;
 pub mod schemes;
 
 use crate::extended::F80;
-use crate::interp::{Interp, InterpError};
+use crate::piecewise::{Interp, InterpError};
 use numpy::ndarray::Array1;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
 use pyo3::exceptions::{PyIndexError, PyKeyError, PyValueError};

@@ -1,7 +1,19 @@
+//! Integer division with different rounding rules
+
+/// Traits for performing division operations with different rounding rules.
 pub trait DivOp: Sized {
+    /// Performs division and returns the quotien if the remainder is zero,
+    /// otherwise returns `None`.
     fn div_exact(self, rhs: Self) -> Option<Self>;
+
+    /// Performs rounding division, rounding the result to the nearest integer.
+    /// If the remainder is exactly half of the divisor, rounds to the nearest even number.
     fn div_round(self, rhs: Self) -> Self;
+
+    /// Performs rounding division, rounding to result to the previous integer (forward fill).
     fn div_ffill(self, rhs: Self) -> Self;
+
+    /// Performs rounding division, rounding to result to the next integer (backward fill).
     fn div_bfill(self, rhs: Self) -> Self;
 }
 
