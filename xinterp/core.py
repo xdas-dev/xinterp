@@ -9,7 +9,7 @@ def forward(x, xp, fp):
 
     Parameters
     ----------
-    x : 1-D sequence of positive integers
+    x : 1-D sequence or scalar of positive integers
         The indices at which to evaluate the interpolated values.
     xp : 1-D sequence of positive integers
         The indices of the data points, must be strictly increasing.
@@ -18,8 +18,8 @@ def forward(x, xp, fp):
 
     Returns
     -------
-    1-D array of floats, integers or datetime64s.
-        The interpolated values, same length as `x`.
+    1-D array or scalar of floats, integers or datetime64s.
+        The interpolated values, same shape as `x`.
     """
     return _forward(xp, fp, x=x)
 
@@ -30,7 +30,7 @@ def inverse(f, xp, fp, method=None):
 
     Parameters
     ----------
-    f : 1-D sequence of floats, integers or datetime64s
+    f : 1-D sequence or scalar of floats, integers or datetime64s
         The values at which to evaluate the interpolated indices.
     xp : 1-D sequence of positive integers
         The indices of the data points, same length as `fp`.
@@ -45,8 +45,8 @@ def inverse(f, xp, fp, method=None):
 
     Returns
     -------
-    1-D array of positive integers.
-        The interpolated indices, same length as `f`.
+    1-D array or scalar of positive integers.
+        The interpolated indices, same shape as `f`.
     """
     if method is None:
         return _inverse_exact(xp, fp, f=f)
@@ -62,18 +62,18 @@ def inverse(f, xp, fp, method=None):
 
 def wraps(func_int, func_float):
     def func(xp, fp, *, x=None, f=None):
-        xp, fp, x, f = check(xp, fp, x, f)
+        xp, fp, x, f, isscalar = check(xp, fp, x, f)
         if np.issubdtype(fp.dtype, np.integer) or np.issubdtype(
             fp.dtype, np.datetime64
         ):
             if x is not None:
-                return func_int(
-                    x.astype("u8"), xp.astype("u8"), fp.astype("i8")
-                ).astype(fp.dtype)
+                out = func_int(x.astype("u8"), xp.astype("u8"), fp.astype("i8")).astype(
+                    fp.dtype
+                )
             if f is not None:
-                return func_int(
-                    f.astype("i8"), xp.astype("u8"), fp.astype("i8")
-                ).astype(xp.dtype)
+                out = func_int(f.astype("i8"), xp.astype("u8"), fp.astype("i8")).astype(
+                    xp.dtype
+                )
         elif np.issubdtype(fp.dtype, np.floating):
             if x is not None:
                 out = func_float(
@@ -85,7 +85,10 @@ def wraps(func_int, func_float):
                 ).astype(xp.dtype)
         else:
             raise ValueError("fp dtype must be either integer, floating or datetime")
-        return out
+        if isscalar:
+            return out[0]
+        else:
+            return out
 
     return func
 
@@ -107,8 +110,13 @@ def check(xp, fp, x=None, f=None):
         raise ValueError("either x or f must be provided")
     if x is not None:
         x = np.asarray(x)
-        if not (x.ndim == 1):
-            raise ValueError("x must be 1D array")
+        if x.ndim == 0:
+            x = x.reshape(1)
+            isscalar = True
+        elif x.ndim == 1:
+            isscalar = False
+        else:
+            raise ValueError("x must be 1D or scalar")
         if not x.dtype == xp.dtype:
             raise ValueError("x and xp must have the same dtype")
         if not np.all(x >= 0):
@@ -117,13 +125,18 @@ def check(xp, fp, x=None, f=None):
             raise ValueError("xp must be strictly increasing")
     if f is not None:
         f = np.asarray(f)
-        if not (f.ndim == 1):
-            raise ValueError("f must be 1D array")
+        if f.ndim == 0:
+            f = f.reshape(1)
+            isscalar = True
+        elif f.ndim == 1:
+            isscalar = False
+        else:
+            raise ValueError("f must be 1D or scalar")
         if not f.dtype == fp.dtype:
             raise ValueError("f and fp must have the same dtype")
         if not np.all(fp[1:] > fp[:-1]):
             raise ValueError("fp must be strictly increasing")
-    return xp, fp, x, f
+    return xp, fp, x, f, isscalar
 
 
 _forward = wraps(rust.forward_int, rust.forward_float)

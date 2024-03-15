@@ -6,7 +6,7 @@ from xinterp import forward, inverse
 
 class TestForward:
     def test_raises_not_1D(self):
-        with pytest.raises(ValueError, match="x must be 1D"):
+        with pytest.raises(ValueError, match="x must be 1D or scalar"):
             forward([[1]], [0, 2], [3, 5])
         with pytest.raises(ValueError, match="xp and fp must be 1D"):
             forward([1], [[0, 2]], [3, 5])
@@ -56,6 +56,14 @@ class TestForward:
         assert forward([1], [0, 2], np.array([3, 5], "f4")).dtype == "f4"
         assert forward(np.array([1], "u2"), np.array([0, 2], "u2"), [3, 5])[0] == 4
 
+    def test_scalar_handling(self):
+        assert forward([1], [0, 2], [3, 5]).ndim == 1
+        assert forward(1, [0, 2], [3, 5]).ndim == 0
+        assert forward([1], [0, 2], np.array([3, 5], "M8[s]")).ndim == 1
+        assert forward(1, [0, 2], np.array([3, 5], "M8[s]")).ndim == 0
+        assert forward([1], [0, 2], np.array([3, 5], "f4")).ndim == 1
+        assert forward(1, [0, 2], np.array([3, 5], "f4")).ndim == 0
+
     def test_interpolation_accuracy_int(self):
         rng = np.random.default_rng(42)
         n = 1_000
@@ -87,7 +95,7 @@ class TestForward:
 
 class TestInverse:
     def test_raises_not_1D(self):
-        with pytest.raises(ValueError, match="f must be 1D"):
+        with pytest.raises(ValueError, match="f must be 1D or scalar"):
             inverse([[4]], [0, 2], [3, 5])
         with pytest.raises(ValueError, match="xp and fp must be 1D"):
             inverse([4], [[0, 2]], [3, 5])
@@ -152,6 +160,18 @@ class TestInverse:
         assert inverse(np.array([4], "M8[s]"), [0, 2], np.array([3, 5], "M8[s]")) == 1
         assert inverse([4], np.array([0, 2], "u2"), [3, 5]) == 1
         assert inverse([4], np.array([0, 2], "u2"), [3, 5]).dtype == "u2"
+
+    def test_scalar_handling(self):
+        assert inverse([4], [0, 2], [3, 5]).ndim == 1
+        assert inverse(4, [0, 2], [3, 5]).ndim == 0
+        assert inverse([4.0], [0, 2], [3.0, 5.0]).ndim == 1
+        assert inverse(4.0, [0, 2], [3.0, 5.0]).ndim == 0
+        assert (
+            inverse(np.array([4], "M8[s]"), [0, 2], np.array([3, 5], "M8[s]")).ndim == 1
+        )
+        assert (
+            inverse(np.array(4, "M8[s]"), [0, 2], np.array([3, 5], "M8[s]")).ndim == 0
+        )
 
     def test_interpolation_accuracy_int(self):
         rng = np.random.default_rng(42)
