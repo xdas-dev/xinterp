@@ -82,7 +82,11 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
             Some("nearest") => Method::Nearest,
             Some("ffill") => Method::ForwardFill,
             Some("bfill") => Method::BackwardFill,
-            Some(_) => panic!("Uknown method"),
+            Some(_) => {
+                return Err(PyValueError::new_err(
+                    "method must be either None, 'nearest', 'ffill' or 'bfill'",
+                ))
+            }
         };
         let interp = Interp::new(xp.to_vec(), fp.to_vec());
         let mut x = Array1::zeros(f.len());
@@ -117,7 +121,11 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
             Some("nearest") => Method::Nearest,
             Some("ffill") => Method::ForwardFill,
             Some("bfill") => Method::BackwardFill,
-            Some(_) => panic!("Uknown method"),
+            Some(_) => {
+                return Err(PyValueError::new_err(
+                    "method must be either None, 'nearest', 'ffill' or 'bfill'",
+                ))
+            }
         };
         let interp = Interp::new(xp, fp);
         let mut x = Array1::zeros(f.len());

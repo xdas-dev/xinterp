@@ -166,6 +166,13 @@ class TestInverse:
         inverse([5.0 + 1e-16], [0, 2], [3.0, 7.0])
         inverse([5.0 - 1e-16], [0, 2], [3.0, 7.0])
 
+    def test_raises_wrong_method(self):
+        with pytest.raises(
+            ValueError,
+            match="method must be either None, 'nearest', 'ffill' or 'bfill'",
+        ):
+            inverse([4], [0, 2], [3, 5], method="non_existing_method")
+
     def test_type_handling(self):
         assert inverse([4], [0, 2], [3, 5]) == 1
         assert inverse([4.0], [0, 2], [3.0, 5.0]) == 1
