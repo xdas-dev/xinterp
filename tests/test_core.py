@@ -5,7 +5,7 @@ from xinterp import forward, inverse
 
 
 class TestForward:
-    def test_interpolation_accuracy(self):
+    def test_interpolation_accuracy_int(self):
         rng = np.random.default_rng(42)
         n = 1_000
         m = 10_000
@@ -17,6 +17,20 @@ class TestForward:
         f = forward(x, xp, fp)
         f_expected = np.rint(np.round(np.interp(x, xp, fp), 6)).astype("i8")
         assert np.array_equal(f, f_expected)
+        assert f.dtype == f_expected.dtype
+
+    def test_interpolation_accuracy_float(self):
+        rng = np.random.default_rng(42)
+        n = 1_000
+        m = 10_000
+        integers = np.arange(0, 65_535)
+        xp = np.sort(rng.choice(integers, n, replace=False))
+        fp = rng.integers(np.min(integers), np.max(integers), n).astype(np.float64)
+        selected = np.arange(np.min(xp), np.max(xp) + 1)
+        x = np.sort(rng.choice(selected, m, replace=False))
+        f = forward(x, xp, fp)
+        f_expected = np.interp(x, xp, fp)
+        assert np.allclose(f, f_expected)
         assert f.dtype == f_expected.dtype
 
     def test_out_of_bound(self):
