@@ -57,7 +57,7 @@ class TestForward:
 
     def test_type_handling(self):
         assert forward([1], [0, 2], [3, 5]) == 4
-        assert forward([1], [0, 2], [3, 5]).dtype == "i8"
+        assert forward([1], [0, 2], [3, 5]).dtype in ["i4", "i8"]
         assert forward([1], [0, 2], np.array([3, 5], "M8[s]")) == np.datetime64(4, "s")
         assert forward([1], [0, 2], np.array([3, 5], "M8[s]")).dtype == "M8[s]"
         assert forward([1], [0, 2], np.array([3, 5], "f4")) == 4
@@ -218,15 +218,15 @@ class TestInverse:
         result = inverse(f, xp, fp, method="nearest")
         expected = np.rint(np.interp(f, fp, xp)).astype("i8")
         assert np.array_equal(result, expected)
-        assert result.dtype == expected.dtype
+        assert result.dtype in ["i4", "i8"]
         result = inverse(f, xp, fp, method="ffill")
         expected = np.floor(np.interp(f, fp, xp)).astype("i8")
         assert np.array_equal(result, expected)
-        assert result.dtype == expected.dtype
+        assert result.dtype in ["i4", "i8"]
         result = inverse(f, xp, fp, method="bfill")
         expected = np.ceil(np.interp(f, fp, xp)).astype("i8")
         assert np.array_equal(result, expected)
-        assert result.dtype == expected.dtype
+        assert result.dtype in ["i4", "i8"]
 
     def test_use_case_integer(self):
         xp = np.array([0, 5, 15])

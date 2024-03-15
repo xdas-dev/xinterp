@@ -45,22 +45,6 @@ impl Forward<F80> for u64 {
 /// Implements inverse scheme from value to index.
 pub trait Inverse<X>: Clone + Ord {
     fn inverse(self, x0: X, x1: X, f0: Self, f1: Self, method: Method) -> Option<X>;
-
-    /// Retrieve index x that corresonds to value f between two points (x0, f0) and (x1, f1).
-    /// Returns x if f falls exactly on it or `None` otherwise.
-    fn inverse_exact(self, x0: X, x1: X, f0: Self, f1: Self) -> Option<X>;
-
-    /// Retrieve index x that corresonds to value f between two points (x0, f0) and (x1, f1).
-    /// Rounds to the nearest x using round ties to even rule.
-    fn inverse_round(self, x0: X, x1: X, f0: Self, f1: Self) -> X;
-
-    /// Retrieve index x that corresonds to value f between two points (x0, f0) and (x1, f1).
-    /// Rounds to the previous x using forward-fill rule.
-    fn inverse_ffill(self, x0: X, x1: X, f0: Self, f1: Self) -> X;
-
-    /// Retrieve index x that corresonds to value f between two points (x0, f0) and (x1, f1).
-    /// Rounds to the next x using backward-fill rule.
-    fn inverse_bfill(self, x0: X, x1: X, f0: Self, f1: Self) -> X;
 }
 impl Inverse<u64> for u64 {
     fn inverse(self, x0: u64, x1: u64, f0: u64, f1: u64, method: Method) -> Option<u64> {
@@ -68,47 +52,11 @@ impl Inverse<u64> for u64 {
         let den = (f1 - f0) as u128;
         num.div(den, method).map(|x| x as u64)
     }
-    fn inverse_exact(self, x0: u64, x1: u64, f0: u64, f1: u64) -> Option<u64> {
-        let num = (x0 as u128) * ((f1 - self) as u128) + (x1 as u128) * ((self - f0) as u128);
-        let den = (f1 - f0) as u128;
-        num.div_exact(den).map(|x| x as u64)
-    }
-    fn inverse_round(self, x0: u64, x1: u64, f0: u64, f1: u64) -> u64 {
-        let num = (x0 as u128) * ((f1 - self) as u128) + (x1 as u128) * ((self - f0) as u128);
-        let den = (f1 - f0) as u128;
-        num.div_round(den) as u64
-    }
-    fn inverse_ffill(self, x0: u64, x1: u64, f0: u64, f1: u64) -> u64 {
-        let num = (x0 as u128) * ((f1 - self) as u128) + (x1 as u128) * ((self - f0) as u128);
-        let den = (f1 - f0) as u128;
-        num.div_ffill(den) as u64
-    }
-    fn inverse_bfill(self, x0: u64, x1: u64, f0: u64, f1: u64) -> u64 {
-        let num = (x0 as u128) * ((f1 - self) as u128) + (x1 as u128) * ((self - f0) as u128);
-        let den = (f1 - f0) as u128;
-        num.div_bfill(den) as u64
-    }
 }
 impl Inverse<u64> for i64 {
     fn inverse(self, x0: u64, x1: u64, f0: i64, f1: i64, method: Method) -> Option<u64> {
         self.to_unsigned()
             .inverse(x0, x1, f0.to_unsigned(), f1.to_unsigned(), method)
-    }
-    fn inverse_exact(self, x0: u64, x1: u64, f0: i64, f1: i64) -> Option<u64> {
-        self.to_unsigned()
-            .inverse_exact(x0, x1, f0.to_unsigned(), f1.to_unsigned())
-    }
-    fn inverse_round(self, x0: u64, x1: u64, f0: i64, f1: i64) -> u64 {
-        self.to_unsigned()
-            .inverse_round(x0, x1, f0.to_unsigned(), f1.to_unsigned())
-    }
-    fn inverse_ffill(self, x0: u64, x1: u64, f0: i64, f1: i64) -> u64 {
-        self.to_unsigned()
-            .inverse_ffill(x0, x1, f0.to_unsigned(), f1.to_unsigned())
-    }
-    fn inverse_bfill(self, x0: u64, x1: u64, f0: i64, f1: i64) -> u64 {
-        self.to_unsigned()
-            .inverse_bfill(x0, x1, f0.to_unsigned(), f1.to_unsigned())
     }
 }
 impl Inverse<u64> for F80 {
@@ -132,47 +80,6 @@ impl Inverse<u64> for F80 {
             Method::ForwardFill => Some(x.floor().into()),
             Method::BackwardFill => Some(x.ceil().into()),
         }
-    }
-    fn inverse_exact(self, x0: u64, x1: u64, f0: F80, f1: F80) -> Option<u64> {
-        let x0 = F80::from(x0);
-        let x1 = F80::from(x1);
-        let x = x0
-            .mul(&f1.sub(&self))
-            .add(&x1.mul(&self.sub(&f0)))
-            .div(&f1.sub(&f0));
-        let out = x.floor();
-        if out == x {
-            Some(out.into())
-        } else {
-            None
-        }
-    }
-    fn inverse_round(self, x0: u64, x1: u64, f0: F80, f1: F80) -> u64 {
-        let x0 = F80::from(x0);
-        let x1 = F80::from(x1);
-        let x = x0
-            .mul(&f1.sub(&self))
-            .add(&x1.mul(&self.sub(&f0)))
-            .div(&f1.sub(&f0));
-        x.round().into()
-    }
-    fn inverse_ffill(self, x0: u64, x1: u64, f0: F80, f1: F80) -> u64 {
-        let x0 = F80::from(x0);
-        let x1 = F80::from(x1);
-        let x = x0
-            .mul(&f1.sub(&self))
-            .add(&x1.mul(&self.sub(&f0)))
-            .div(&f1.sub(&f0));
-        x.floor().into()
-    }
-    fn inverse_bfill(self, x0: u64, x1: u64, f0: F80, f1: F80) -> u64 {
-        let x0 = F80::from(x0);
-        let x1 = F80::from(x1);
-        let x = x0
-            .mul(&f1.sub(&self))
-            .add(&x1.mul(&self.sub(&f0)))
-            .div(&f1.sub(&f0));
-        x.ceil().into()
     }
 }
 

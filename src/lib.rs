@@ -3,6 +3,7 @@ pub mod extended;
 pub mod piecewise;
 pub mod schemes;
 
+use crate::divop::Method;
 use crate::extended::F80;
 use crate::piecewise::{Interp, InterpError};
 use numpy::ndarray::Array1;
@@ -78,7 +79,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         let interp = Interp::new(xp.to_vec(), fp.to_vec());
         let mut x = Array1::zeros(f.len());
         for (value, index) in f.iter().zip(x.iter_mut()) {
-            match interp.inverse_exact(*value) {
+            match interp.inverse(*value, Method::None) {
                 Ok(result) => *index = result,
                 Err(InterpError::NotStrictlyIncreasing) => {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
@@ -105,7 +106,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         let interp = Interp::new(xp, fp);
         let mut x = Array1::zeros(f.len());
         for (value, index) in f.iter().zip(x.iter_mut()) {
-            match interp.inverse_exact(F80::from(*value)) {
+            match interp.inverse(F80::from(*value), Method::None) {
                 Ok(result) => *index = result,
                 Err(InterpError::NotStrictlyIncreasing) => {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
@@ -131,7 +132,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         let interp = Interp::new(xp.to_vec(), fp.to_vec());
         let mut x = Array1::zeros(f.len());
         for (value, index) in f.iter().zip(x.iter_mut()) {
-            match interp.inverse_round(*value) {
+            match interp.inverse(*value, Method::Nearest) {
                 Ok(result) => *index = result,
                 Err(InterpError::NotStrictlyIncreasing) => {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
@@ -158,7 +159,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         let interp = Interp::new(xp, fp);
         let mut x = Array1::zeros(f.len());
         for (value, index) in f.iter().zip(x.iter_mut()) {
-            match interp.inverse_round(F80::from(*value)) {
+            match interp.inverse(F80::from(*value), Method::Nearest) {
                 Ok(result) => *index = result,
                 Err(InterpError::NotStrictlyIncreasing) => {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
@@ -184,7 +185,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         let interp = Interp::new(xp.to_vec(), fp.to_vec());
         let mut x = Array1::zeros(f.len());
         for (value, index) in f.iter().zip(x.iter_mut()) {
-            match interp.inverse_ffill(*value) {
+            match interp.inverse(*value, Method::ForwardFill) {
                 Ok(result) => *index = result,
                 Err(InterpError::NotStrictlyIncreasing) => {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
@@ -211,7 +212,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         let interp = Interp::new(xp, fp);
         let mut x = Array1::zeros(f.len());
         for (value, index) in f.iter().zip(x.iter_mut()) {
-            match interp.inverse_ffill(F80::from(*value)) {
+            match interp.inverse(F80::from(*value), Method::ForwardFill) {
                 Ok(result) => *index = result,
                 Err(InterpError::NotStrictlyIncreasing) => {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
@@ -237,7 +238,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         let interp = Interp::new(xp.to_vec(), fp.to_vec());
         let mut x = Array1::zeros(f.len());
         for (value, index) in f.iter().zip(x.iter_mut()) {
-            match interp.inverse_bfill(*value) {
+            match interp.inverse(*value, Method::BackwardFill) {
                 Ok(result) => *index = result,
                 Err(InterpError::NotStrictlyIncreasing) => {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
@@ -264,7 +265,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         let interp = Interp::new(xp, fp);
         let mut x = Array1::zeros(f.len());
         for (value, index) in f.iter().zip(x.iter_mut()) {
-            match interp.inverse_bfill(F80::from(*value)) {
+            match interp.inverse(F80::from(*value), Method::BackwardFill) {
                 Ok(result) => *index = result,
                 Err(InterpError::NotStrictlyIncreasing) => {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))

@@ -3,8 +3,8 @@
 use astro_float::{BigFloat, RoundingMode, Sign};
 use std::cmp::Ordering;
 
-/// f80 floating-point format with 64 bits mantissa. It wraps astro-float BigFloat struct with 
-/// imposed one word (64 bits) mantissa. It implements total ordering by only allowing finite 
+/// f80 floating-point format with 64 bits mantissa. It wraps astro-float BigFloat struct with
+/// imposed one word (64 bits) mantissa. It implements total ordering by only allowing finite
 /// values (no nan or inf). It expose some basic methods of BigFloat. Use the From/Into traits
 /// to initialize some instance of this struct from u64 or f64.  
 #[derive(Clone, PartialEq, PartialOrd, Debug)]

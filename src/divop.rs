@@ -10,20 +10,6 @@ pub enum Method {
 /// Traits for performing division operations with different rounding rules.
 pub trait DivOp: Sized {
     fn div(self, rhs: Self, method: Method) -> Option<Self>;
-
-    /// Performs division and returns the quotien if the remainder is zero,
-    /// otherwise returns `None`.
-    fn div_exact(self, rhs: Self) -> Option<Self>;
-
-    /// Performs rounding division, rounding the result to the nearest integer.
-    /// If the remainder is exactly half of the divisor, rounds to the nearest even number.
-    fn div_round(self, rhs: Self) -> Self;
-
-    /// Performs rounding division, rounding to result to the previous integer (forward fill).
-    fn div_ffill(self, rhs: Self) -> Self;
-
-    /// Performs rounding division, rounding to result to the next integer (backward fill).
-    fn div_bfill(self, rhs: Self) -> Self;
 }
 
 impl DivOp for u128 {
@@ -61,42 +47,6 @@ impl DivOp for u128 {
             }
         }
     }
-    fn div_exact(self, rhs: u128) -> Option<u128> {
-        let div = self.div_euclid(rhs);
-        let rem = self.rem_euclid(rhs);
-        if rem == 0 {
-            Some(div)
-        } else {
-            None
-        }
-    }
-    fn div_round(self, rhs: u128) -> u128 {
-        let div = self.div_euclid(rhs);
-        let rem = self.rem_euclid(rhs);
-        if rem * 2 < rhs {
-            div
-        } else if rem * 2 > rhs {
-            div + 1
-        } else {
-            if div % 2 == 0 {
-                div
-            } else {
-                div + 1
-            }
-        }
-    }
-    fn div_ffill(self, rhs: u128) -> u128 {
-        self.div_euclid(rhs)
-    }
-    fn div_bfill(self, rhs: u128) -> u128 {
-        let div = self.div_euclid(rhs);
-        let rem = self.rem_euclid(rhs);
-        if rem == 0 {
-            div
-        } else {
-            div + 1
-        }
-    }
 }
 
 impl DivOp for i128 {
@@ -125,31 +75,6 @@ impl DivOp for i128 {
                     Some(div + 1)
                 }
             }
-        }
-    }
-    fn div_exact(self, rhs: i128) -> Option<i128> {
-        let div = self.div_euclid(rhs);
-        let rem = self.rem_euclid(rhs);
-        if rem == 0 {
-            Some(div)
-        } else {
-            None
-        }
-    }
-    fn div_round(self, rhs: i128) -> i128 {
-        let sgn = self.signum() * rhs.signum();
-        sgn * self.unsigned_abs().div_round(rhs.unsigned_abs()) as i128
-    }
-    fn div_ffill(self, rhs: i128) -> i128 {
-        self.div_euclid(rhs)
-    }
-    fn div_bfill(self, rhs: i128) -> i128 {
-        let div = self.div_euclid(rhs);
-        let rem = self.rem_euclid(rhs);
-        if rem == 0 {
-            div
-        } else {
-            div + 1
         }
     }
 }
