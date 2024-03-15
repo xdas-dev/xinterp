@@ -7,7 +7,7 @@ use crate::extended::F80;
 use crate::interp::{Interp, InterpError};
 use numpy::ndarray::Array1;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyIndexError, PyKeyError, PyValueError};
 use pyo3::prelude::*;
 
 #[pymodule]
@@ -31,7 +31,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                     return Err(PyValueError::new_err("xp must be strictly increasing"))
                 }
                 Err(InterpError::OutOfBounds) => {
-                    return Err(PyValueError::new_err("x out of bounds"))
+                    return Err(PyIndexError::new_err("x out of bounds"))
                 }
                 Err(InterpError::NotFound) => return Err(PyValueError::new_err("x not found")),
             }
@@ -58,7 +58,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                     return Err(PyValueError::new_err("xp must be strictly increasing"))
                 }
                 Err(InterpError::OutOfBounds) => {
-                    return Err(PyValueError::new_err("x out of bounds"))
+                    return Err(PyIndexError::new_err("x out of bounds"))
                 }
                 Err(InterpError::NotFound) => return Err(PyValueError::new_err("x not found")),
             }
@@ -84,7 +84,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
                 }
                 Err(InterpError::OutOfBounds) => {
-                    return Err(PyValueError::new_err("f out of bounds"))
+                    return Err(PyKeyError::new_err("f out of bounds"))
                 }
                 Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
             }
@@ -111,7 +111,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
                 }
                 Err(InterpError::OutOfBounds) => {
-                    return Err(PyValueError::new_err("f out of bounds"))
+                    return Err(PyKeyError::new_err("f out of bounds"))
                 }
                 Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
             }
@@ -137,7 +137,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
                 }
                 Err(InterpError::OutOfBounds) => {
-                    return Err(PyValueError::new_err("f out of bounds"))
+                    return Err(PyKeyError::new_err("f out of bounds"))
                 }
                 Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
             }
@@ -164,7 +164,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
                 }
                 Err(InterpError::OutOfBounds) => {
-                    return Err(PyValueError::new_err("f out of bounds"))
+                    return Err(PyKeyError::new_err("f out of bounds"))
                 }
                 Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
             }
@@ -190,7 +190,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
                 }
                 Err(InterpError::OutOfBounds) => {
-                    return Err(PyValueError::new_err("f out of bounds"))
+                    return Err(PyKeyError::new_err("f out of bounds"))
                 }
                 Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
             }
@@ -217,7 +217,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
                 }
                 Err(InterpError::OutOfBounds) => {
-                    return Err(PyValueError::new_err("f out of bounds"))
+                    return Err(PyKeyError::new_err("f out of bounds"))
                 }
                 Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
             }
@@ -243,7 +243,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
                 }
                 Err(InterpError::OutOfBounds) => {
-                    return Err(PyValueError::new_err("f out of bounds"))
+                    return Err(PyKeyError::new_err("f out of bounds"))
                 }
                 Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
             }
@@ -270,7 +270,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))
                 }
                 Err(InterpError::OutOfBounds) => {
-                    return Err(PyValueError::new_err("f out of bounds"))
+                    return Err(PyKeyError::new_err("f out of bounds"))
                 }
                 Err(InterpError::NotFound) => return Err(PyValueError::new_err("f not found")),
             }

@@ -20,6 +20,11 @@ def forward(x, xp, fp):
     -------
     1-D array or scalar of floats, integers or datetime64s.
         The interpolated values, same shape as `x`.
+
+    Raises
+    ------
+    IndexError
+        If any value of `x` is outside the `xp` range.
     """
     return _forward(xp, fp, x=x)
 
@@ -47,6 +52,11 @@ def inverse(f, xp, fp, method=None):
     -------
     1-D array or scalar of positive integers.
         The interpolated indices, same shape as `f`.
+
+    Raises
+    ------
+    KeyError
+        If any value of `f` is outside the `fp` range.
     """
     if method is None:
         return _inverse_exact(xp, fp, f=f)

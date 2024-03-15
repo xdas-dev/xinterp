@@ -42,9 +42,9 @@ class TestForward:
             forward([1], [2, 0], [3, 5])
 
     def test_raises_out_of_bounds(self):
-        with pytest.raises(ValueError, match="x out of bounds"):
+        with pytest.raises(IndexError, match="x out of bounds"):
             forward([0], [1, 2], [3, 5])
-        with pytest.raises(ValueError, match="x out of bounds"):
+        with pytest.raises(IndexError, match="x out of bounds"):
             forward([3], [1, 2], [3, 5])
 
     def test_type_handling(self):
@@ -129,17 +129,17 @@ class TestInverse:
             inverse([4], [0, 2], [5, 3])
 
     def test_raises_out_of_bounds(self):
-        with pytest.raises(ValueError, match="f out of bounds"):
+        with pytest.raises(KeyError, match="f out of bounds"):
             inverse([2], [1, 2], [3, 5])
-        with pytest.raises(ValueError, match="f out of bounds"):
+        with pytest.raises(KeyError, match="f out of bounds"):
             inverse([6], [1, 2], [3, 5])
         inverse([2], [1, 2], [3, 5], method="nearest") == 1
         inverse([6], [1, 2], [3, 5], method="nearest") == 2
-        with pytest.raises(ValueError, match="f out of bounds"):
+        with pytest.raises(KeyError, match="f out of bounds"):
             inverse([2], [1, 2], [3, 5], method="ffill")
         inverse([6], [1, 2], [3, 5], method="ffill") == 2
         inverse([2], [1, 2], [3, 5], method="bfill") == 1
-        with pytest.raises(ValueError, match="f out of bounds"):
+        with pytest.raises(KeyError, match="f out of bounds"):
             inverse([6], [1, 2], [3, 5], method="bfill")
 
     def test_raises_not_found(self):
