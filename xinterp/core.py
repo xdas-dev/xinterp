@@ -67,7 +67,7 @@ def inverse(f, xp, fp, method=None):
     elif method is "bfill":
         return _inverse_bfill(xp, fp, f=f)
     else:
-        raise ValueError("method must be in [None, 'nearest', 'ffill', 'bfill']")
+        raise ValueError("valid methods are: None, 'nearest', 'ffill' and 'bfill'")
 
 
 def wraps(func_int, func_float):

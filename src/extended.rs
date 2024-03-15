@@ -115,11 +115,27 @@ impl F80 {
             value: self.value.div(&rhs.value, 64, RoundingMode::ToEven),
         }
     }
-    pub fn round(&self) -> F80 {
-        F80 {
-            value: self.value.round(0, RoundingMode::ToEven),
-        }
-    }
+    // pub fn round(&self) -> F80 {
+    //     let abs = self.value.abs();
+    //     let one = BigFloat::from_f64(1.0, 64);
+    //     let cmp = abs.cmp(&one);
+    //     match cmp {
+    //         Some(Sign::Pos) => F80 {
+    //             value: self.value.round(0, RoundingMode::ToEven),
+    //         },
+    //         Some(0) => self,
+    //         Some(Sign::Neg) => F80 {
+    //             value: self.value.round(0, RoundingMode::ToEven),
+    //         },
+    //         None => self,
+    //     }
+    //     // if .cmp(&BigFloat::from_f64(1.0, 64)).unwrap() {
+
+    //     // }/
+    //     // F80 {
+    //     //     value: self.value,
+    //     // }
+    // }
     pub fn floor(&self) -> F80 {
         F80 {
             value: self.value.floor(),
@@ -131,6 +147,27 @@ impl F80 {
         }
     }
 }
+
+// trait RoundTiesEven {
+//     fn round_ties_even(self) -> f64;
+// }
+// impl RoundTiesEven for f64 {
+//     fn round_ties_even(self) -> f64 {
+//         let mut rounded = self.round();
+//         if (self - rounded).abs() == 0.5 {
+//             if rounded % 2.0 == 0.0 {
+//                 return rounded;
+//             } else {
+//                 if self > 0.0 {
+//                     rounded -= 1.0;
+//                 } else {
+//                     rounded += 1.0;
+//                 }
+//             }
+//         }
+//         rounded
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

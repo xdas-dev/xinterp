@@ -265,3 +265,84 @@ class TestInverse:
         cases = [(1, 21), (2, 23), (3, 25), (4, 27), (5, 29), (6, 31), (7, 33), (8, 35)]
         for x, f in cases:
             assert inverse([float(f)], xp, fp, method="bfill")[0] == x
+
+
+# class TestScaleOffset:
+#     def test_init(self):
+#         transform = ScaleOffset(10.0, 100.0)
+#         assert transform.scale == 10.0
+#         assert transform.offset == 100.0
+
+#     def test_eq(self):
+#         transform1 = ScaleOffset(10.0, 100.0)
+#         transform2 = ScaleOffset(
+#             np.timedelta64(1, "s"), np.datetime64("2000-01-01T00:00:00")
+#         )
+#         assert transform1 == transform1
+#         assert transform2 == transform2
+#         assert transform1 != transform2
+
+#     def test_direct(self):
+#         transform = ScaleOffset(10.0, 100.0)
+#         assert transform.direct(150.0) == 5.0
+#         assert np.allclose(
+#             transform.direct(np.array([150.0, 160.0])), np.array([5.0, 6.0])
+#         )
+#         transform = ScaleOffset(
+#             np.timedelta64(1, "s"), np.datetime64("2000-01-01T00:00:00")
+#         )
+#         assert transform.direct(np.datetime64("2000-01-01T00:00:10")) == 10.0
+
+#     def test_inverse(self):
+#         transform = ScaleOffset(10.0, 100.0)
+#         assert transform.inverse(5.0) == 150
+#         assert np.allclose(
+#             transform.inverse(np.array([5.0, 6.0])), np.array([150.0, 160.0])
+#         )
+#         transform = ScaleOffset(
+#             np.timedelta64(1, "s"), np.datetime64("2000-01-01T00:00:00")
+#         )
+#         assert transform.inverse(10.0) == np.datetime64("2000-01-01T00:00:10")
+#         assert transform.inverse(10.3) == np.datetime64("2000-01-01T00:00:10")
+#         assert transform.inverse(10.7) == np.datetime64("2000-01-01T00:00:11")
+#         assert transform.inverse(11.0) == np.datetime64("2000-01-01T00:00:11")
+#         transform = ScaleOffset(
+#             np.timedelta64(1000, "us"), np.datetime64("2000-01-01T00:00:00")
+#         )
+#         assert transform.inverse(1000.0) == np.datetime64("2000-01-01T00:00:01")
+#         assert transform.inverse(1000.3) == np.datetime64("2000-01-01T00:00:01")
+#         assert transform.inverse(1000.7) == np.datetime64("2000-01-01T00:00:01.001")
+
+#     def test_floatize(self):
+#         assert ScaleOffset.floatize(np.linspace(0, 1)) == ScaleOffset(1.0, 0.0)
+#         assert ScaleOffset.floatize(
+#             np.array(
+#                 [
+#                     np.datetime64("2000-01-01T00:00:00"),
+#                     np.datetime64("2000-01-02T00:00:00"),
+#                 ]
+#             )
+#         ) == ScaleOffset(np.timedelta64(1, "s"), np.datetime64("2000-01-01T12:00:00"))
+
+#     def test_accuracy(self):
+#         x = np.random.rand(1000)
+#         transform = ScaleOffset.floatize(x)
+#         assert np.all(np.abs(x - transform.inverse(transform.direct(x))) < 1e-15)
+
+#         t0 = np.datetime64("2000-01-01T00:00:00.000000000")
+#         three_years_ns = t0 + np.random.randint(0, int(1e9) * 3600 * 24 * 1000, 1000)
+#         three_month_ns = t0 + np.random.randint(0, int(1e9) * 3600 * 24 * 100, 1000)
+
+#         t = three_years_ns.astype("datetime64[us]")
+#         transform = ScaleOffset.floatize(t)
+#         assert np.all(t == transform.inverse(transform.direct(t)))
+
+#         t = three_month_ns
+#         transform = ScaleOffset.floatize(t)
+#         assert np.all(t == transform.inverse(transform.direct(t)))
+
+#         t = three_years_ns
+#         with pytest.warns(UserWarning):
+#             transform = ScaleOffset.floatize(t)
+#             error = np.abs(t - transform.inverse(transform.direct(t)))
+#             assert np.all(error < np.timedelta64(1, "us"))
