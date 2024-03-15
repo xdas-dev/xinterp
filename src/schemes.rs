@@ -1,15 +1,15 @@
 //! Forward and backward linear interpolation schemes between two points (x0, f0) and (x1, f1) for
 //! different data types (x is u64, f is either i64 or f64).
-//! 
+//!
 //! When the values are integers, operations are performed with u128 integers to avoid overflow.
-//! Signed integers are mapped on positive values to avoid potential subtraction overflows 
+//! Signed integers are mapped on positive values to avoid potential subtraction overflows
 //! (subtracting i64::MIN to i64::MAX overflows whereas it does not for u64).
-//! 
+//!
 //! When the values are floats, operations are performed with extended-precision floats to
-//! avoid big numbers inacurracies (integers above 2^53 cannot accurately be represented by f64 
-//! which is problematic when using nanosecond datetime64 timestamps). 
+//! avoid big numbers inacurracies (integers above 2^53 cannot accurately be represented by f64
+//! which is problematic when using nanosecond datetime64 timestamps).
 
-use crate::divop::DivOp;
+use crate::divop::{DivOp, Method};
 use crate::extended::F80;
 
 /// Implements forward scheme from index to value.
@@ -21,7 +21,7 @@ impl Forward<u64> for u64 {
     fn forward(self, x0: u64, x1: u64, f0: u64, f1: u64) -> u64 {
         let num = (f0 as u128) * ((x1 - self) as u128) + (f1 as u128) * ((self - x0) as u128);
         let den = (x1 - x0) as u128;
-        num.div_round(den) as u64
+        num.div(den, Method::Nearest).unwrap() as u64
     }
 }
 impl Forward<i64> for u64 {
@@ -44,6 +44,8 @@ impl Forward<F80> for u64 {
 
 /// Implements inverse scheme from value to index.
 pub trait Inverse<X>: Clone + Ord {
+    fn inverse(self, x0: X, x1: X, f0: Self, f1: Self, method: Method) -> Option<X>;
+
     /// Retrieve index x that corresonds to value f between two points (x0, f0) and (x1, f1).
     /// Returns x if f falls exactly on it or `None` otherwise.
     fn inverse_exact(self, x0: X, x1: X, f0: Self, f1: Self) -> Option<X>;
@@ -61,6 +63,11 @@ pub trait Inverse<X>: Clone + Ord {
     fn inverse_bfill(self, x0: X, x1: X, f0: Self, f1: Self) -> X;
 }
 impl Inverse<u64> for u64 {
+    fn inverse(self, x0: u64, x1: u64, f0: u64, f1: u64, method: Method) -> Option<u64> {
+        let num = (x0 as u128) * ((f1 - self) as u128) + (x1 as u128) * ((self - f0) as u128);
+        let den = (f1 - f0) as u128;
+        num.div(den, method).map(|x| x as u64)
+    }
     fn inverse_exact(self, x0: u64, x1: u64, f0: u64, f1: u64) -> Option<u64> {
         let num = (x0 as u128) * ((f1 - self) as u128) + (x1 as u128) * ((self - f0) as u128);
         let den = (f1 - f0) as u128;
@@ -83,6 +90,10 @@ impl Inverse<u64> for u64 {
     }
 }
 impl Inverse<u64> for i64 {
+    fn inverse(self, x0: u64, x1: u64, f0: i64, f1: i64, method: Method) -> Option<u64> {
+        self.to_unsigned()
+            .inverse(x0, x1, f0.to_unsigned(), f1.to_unsigned(), method)
+    }
     fn inverse_exact(self, x0: u64, x1: u64, f0: i64, f1: i64) -> Option<u64> {
         self.to_unsigned()
             .inverse_exact(x0, x1, f0.to_unsigned(), f1.to_unsigned())
@@ -101,6 +112,27 @@ impl Inverse<u64> for i64 {
     }
 }
 impl Inverse<u64> for F80 {
+    fn inverse(self, x0: u64, x1: u64, f0: F80, f1: F80, method: Method) -> Option<u64> {
+        let x0 = F80::from(x0);
+        let x1 = F80::from(x1);
+        let x = x0
+            .mul(&f1.sub(&self))
+            .add(&x1.mul(&self.sub(&f0)))
+            .div(&f1.sub(&f0));
+        match method {
+            Method::None => {
+                let out = x.floor();
+                if out == x {
+                    Some(out.into())
+                } else {
+                    None
+                }
+            }
+            Method::Nearest => Some(x.round().into()),
+            Method::ForwardFill => Some(x.floor().into()),
+            Method::BackwardFill => Some(x.ceil().into()),
+        }
+    }
     fn inverse_exact(self, x0: u64, x1: u64, f0: F80, f1: F80) -> Option<u64> {
         let x0 = F80::from(x0);
         let x1 = F80::from(x1);

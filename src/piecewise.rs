@@ -1,5 +1,6 @@
 //! Forward and inverse interpolation on piecewise linear functions.
 
+use crate::divop::Method;
 use crate::schemes::{Forward, Inverse};
 
 #[derive(PartialEq, Debug)]
@@ -49,6 +50,33 @@ where
             Err(InterpError::NotStrictlyIncreasing)
         }
     }
+    pub fn inverse(&self, rhs: F, method: Method) -> Result<X, InterpError> {
+        if self.inversable {
+            match self.fp.binary_search(&rhs) {
+                Ok(index) => Ok(self.xp[index].clone()),
+                Err(0) => match method {
+                    Method::None | Method::ForwardFill => Err(InterpError::OutOfBounds),
+                    Method::Nearest | Method::BackwardFill => Ok(self.xp[0].clone()),
+                },
+                Err(len) if len == self.xp.len() => match method {
+                    Method::None | Method::BackwardFill => Err(InterpError::OutOfBounds),
+                    Method::Nearest | Method::ForwardFill => Ok(self.xp[len - 1].clone()),
+                },
+                Err(index) => rhs
+                    .inverse(
+                        self.xp[index - 1].clone(),
+                        self.xp[index].clone(),
+                        self.fp[index - 1].clone(),
+                        self.fp[index].clone(),
+                        method,
+                    )
+                    .ok_or(InterpError::NotFound),
+            }
+        } else {
+            Err(InterpError::NotStrictlyIncreasing)
+        }
+    }
+
     pub fn inverse_exact(&self, rhs: F) -> Result<X, InterpError> {
         if self.inversable {
             match self.fp.binary_search(&rhs) {
@@ -182,16 +210,16 @@ mod tests {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<u64> = vec![20, 30];
         let interp = Interp::new(xp, fp);
-        assert_eq!(interp.inverse_exact(19), Err(InterpError::OutOfBounds));
-        assert_eq!(interp.inverse_exact(20), Ok(0));
-        assert_eq!(interp.inverse_exact(21), Err(InterpError::NotFound));
-        assert_eq!(interp.inverse_exact(22), Ok(1));
-        assert_eq!(interp.inverse_exact(23), Err(InterpError::NotFound));
-        assert_eq!(interp.inverse_exact(24), Ok(2));
-        assert_eq!(interp.inverse_exact(25), Err(InterpError::NotFound));
-        assert_eq!(interp.inverse_exact(26), Ok(3));
-        assert_eq!(interp.inverse_exact(30), Ok(5));
-        assert_eq!(interp.inverse_exact(31), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse(19, Method::None), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse(20, Method::None), Ok(0));
+        assert_eq!(interp.inverse(21, Method::None), Err(InterpError::NotFound));
+        assert_eq!(interp.inverse(22, Method::None), Ok(1));
+        assert_eq!(interp.inverse(23, Method::None), Err(InterpError::NotFound));
+        assert_eq!(interp.inverse(24, Method::None), Ok(2));
+        assert_eq!(interp.inverse(25, Method::None), Err(InterpError::NotFound));
+        assert_eq!(interp.inverse(26, Method::None), Ok(3));
+        assert_eq!(interp.inverse(30, Method::None), Ok(5));
+        assert_eq!(interp.inverse(31, Method::None), Err(InterpError::OutOfBounds));
     }
 
     #[test]
@@ -199,16 +227,16 @@ mod tests {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<u64> = vec![20, 30];
         let interp = Interp::new(xp, fp);
-        assert_eq!(interp.inverse_round(19), Ok(0));
-        assert_eq!(interp.inverse_round(20), Ok(0));
-        assert_eq!(interp.inverse_round(21), Ok(0));
-        assert_eq!(interp.inverse_round(22), Ok(1));
-        assert_eq!(interp.inverse_round(23), Ok(2));
-        assert_eq!(interp.inverse_round(24), Ok(2));
-        assert_eq!(interp.inverse_round(25), Ok(2));
-        assert_eq!(interp.inverse_round(26), Ok(3));
-        assert_eq!(interp.inverse_round(30), Ok(5));
-        assert_eq!(interp.inverse_round(31), Ok(5));
+        assert_eq!(interp.inverse(19, Method::Nearest), Ok(0));
+        assert_eq!(interp.inverse(20, Method::Nearest), Ok(0));
+        assert_eq!(interp.inverse(21, Method::Nearest), Ok(0));
+        assert_eq!(interp.inverse(22, Method::Nearest), Ok(1));
+        assert_eq!(interp.inverse(23, Method::Nearest), Ok(2));
+        assert_eq!(interp.inverse(24, Method::Nearest), Ok(2));
+        assert_eq!(interp.inverse(25, Method::Nearest), Ok(2));
+        assert_eq!(interp.inverse(26, Method::Nearest), Ok(3));
+        assert_eq!(interp.inverse(30, Method::Nearest), Ok(5));
+        assert_eq!(interp.inverse(31, Method::Nearest), Ok(5));
     }
 
     #[test]
@@ -216,16 +244,16 @@ mod tests {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<u64> = vec![20, 30];
         let interp = Interp::new(xp, fp);
-        assert_eq!(interp.inverse_ffill(19), Err(InterpError::OutOfBounds));
-        assert_eq!(interp.inverse_ffill(20), Ok(0));
-        assert_eq!(interp.inverse_ffill(21), Ok(0));
-        assert_eq!(interp.inverse_ffill(22), Ok(1));
-        assert_eq!(interp.inverse_ffill(23), Ok(1));
-        assert_eq!(interp.inverse_ffill(24), Ok(2));
-        assert_eq!(interp.inverse_ffill(25), Ok(2));
-        assert_eq!(interp.inverse_ffill(26), Ok(3));
-        assert_eq!(interp.inverse_ffill(30), Ok(5));
-        assert_eq!(interp.inverse_ffill(31), Ok(5));
+        assert_eq!(interp.inverse(19, Method::ForwardFill), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse(20, Method::ForwardFill), Ok(0));
+        assert_eq!(interp.inverse(21, Method::ForwardFill), Ok(0));
+        assert_eq!(interp.inverse(22, Method::ForwardFill), Ok(1));
+        assert_eq!(interp.inverse(23, Method::ForwardFill), Ok(1));
+        assert_eq!(interp.inverse(24, Method::ForwardFill), Ok(2));
+        assert_eq!(interp.inverse(25, Method::ForwardFill), Ok(2));
+        assert_eq!(interp.inverse(26, Method::ForwardFill), Ok(3));
+        assert_eq!(interp.inverse(30, Method::ForwardFill), Ok(5));
+        assert_eq!(interp.inverse(31, Method::ForwardFill), Ok(5));
     }
 
     #[test]
@@ -233,16 +261,16 @@ mod tests {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<u64> = vec![20, 30];
         let interp = Interp::new(xp, fp);
-        assert_eq!(interp.inverse_bfill(19), Ok(0));
-        assert_eq!(interp.inverse_bfill(20), Ok(0));
-        assert_eq!(interp.inverse_bfill(21), Ok(1));
-        assert_eq!(interp.inverse_bfill(22), Ok(1));
-        assert_eq!(interp.inverse_bfill(23), Ok(2));
-        assert_eq!(interp.inverse_bfill(24), Ok(2));
-        assert_eq!(interp.inverse_bfill(25), Ok(3));
-        assert_eq!(interp.inverse_bfill(26), Ok(3));
-        assert_eq!(interp.inverse_bfill(30), Ok(5));
-        assert_eq!(interp.inverse_bfill(31), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse(19, Method::BackwardFill), Ok(0));
+        assert_eq!(interp.inverse(20, Method::BackwardFill), Ok(0));
+        assert_eq!(interp.inverse(21, Method::BackwardFill), Ok(1));
+        assert_eq!(interp.inverse(22, Method::BackwardFill), Ok(1));
+        assert_eq!(interp.inverse(23, Method::BackwardFill), Ok(2));
+        assert_eq!(interp.inverse(24, Method::BackwardFill), Ok(2));
+        assert_eq!(interp.inverse(25, Method::BackwardFill), Ok(3));
+        assert_eq!(interp.inverse(26, Method::BackwardFill), Ok(3));
+        assert_eq!(interp.inverse(30, Method::BackwardFill), Ok(5));
+        assert_eq!(interp.inverse(31, Method::BackwardFill), Err(InterpError::OutOfBounds));
     }
 
     #[test]
@@ -250,16 +278,16 @@ mod tests {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<i64> = vec![-30, -20];
         let interp = Interp::new(xp, fp);
-        assert_eq!(interp.inverse_exact(-31), Err(InterpError::OutOfBounds));
-        assert_eq!(interp.inverse_exact(-30), Ok(0));
-        assert_eq!(interp.inverse_exact(-29), Err(InterpError::NotFound));
-        assert_eq!(interp.inverse_exact(-28), Ok(1));
-        assert_eq!(interp.inverse_exact(-27), Err(InterpError::NotFound));
-        assert_eq!(interp.inverse_exact(-26), Ok(2));
-        assert_eq!(interp.inverse_exact(-25), Err(InterpError::NotFound));
-        assert_eq!(interp.inverse_exact(-24), Ok(3));
-        assert_eq!(interp.inverse_exact(-20), Ok(5));
-        assert_eq!(interp.inverse_exact(-19), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse(-31, Method::None), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse(-30, Method::None), Ok(0));
+        assert_eq!(interp.inverse(-29, Method::None), Err(InterpError::NotFound));
+        assert_eq!(interp.inverse(-28, Method::None), Ok(1));
+        assert_eq!(interp.inverse(-27, Method::None), Err(InterpError::NotFound));
+        assert_eq!(interp.inverse(-26, Method::None), Ok(2));
+        assert_eq!(interp.inverse(-25, Method::None), Err(InterpError::NotFound));
+        assert_eq!(interp.inverse(-24, Method::None), Ok(3));
+        assert_eq!(interp.inverse(-20, Method::None), Ok(5));
+        assert_eq!(interp.inverse(-19, Method::None), Err(InterpError::OutOfBounds));
     }
 
     #[test]
@@ -267,16 +295,16 @@ mod tests {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<i64> = vec![-30, -20];
         let interp = Interp::new(xp, fp);
-        assert_eq!(interp.inverse_round(-31), Ok(0));
-        assert_eq!(interp.inverse_round(-30), Ok(0));
-        assert_eq!(interp.inverse_round(-29), Ok(0));
-        assert_eq!(interp.inverse_round(-28), Ok(1));
-        assert_eq!(interp.inverse_round(-27), Ok(2));
-        assert_eq!(interp.inverse_round(-26), Ok(2));
-        assert_eq!(interp.inverse_round(-25), Ok(2));
-        assert_eq!(interp.inverse_round(-24), Ok(3));
-        assert_eq!(interp.inverse_round(-20), Ok(5));
-        assert_eq!(interp.inverse_round(-19), Ok(5));
+        assert_eq!(interp.inverse(-31, Method::Nearest), Ok(0));
+        assert_eq!(interp.inverse(-30, Method::Nearest), Ok(0));
+        assert_eq!(interp.inverse(-29, Method::Nearest), Ok(0));
+        assert_eq!(interp.inverse(-28, Method::Nearest), Ok(1));
+        assert_eq!(interp.inverse(-27, Method::Nearest), Ok(2));
+        assert_eq!(interp.inverse(-26, Method::Nearest), Ok(2));
+        assert_eq!(interp.inverse(-25, Method::Nearest), Ok(2));
+        assert_eq!(interp.inverse(-24, Method::Nearest), Ok(3));
+        assert_eq!(interp.inverse(-20, Method::Nearest), Ok(5));
+        assert_eq!(interp.inverse(-19, Method::Nearest), Ok(5));
     }
 
     #[test]
@@ -284,16 +312,16 @@ mod tests {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<i64> = vec![-30, -20];
         let interp = Interp::new(xp, fp);
-        assert_eq!(interp.inverse_ffill(-31), Err(InterpError::OutOfBounds));
-        assert_eq!(interp.inverse_ffill(-30), Ok(0));
-        assert_eq!(interp.inverse_ffill(-29), Ok(0));
-        assert_eq!(interp.inverse_ffill(-28), Ok(1));
-        assert_eq!(interp.inverse_ffill(-27), Ok(1));
-        assert_eq!(interp.inverse_ffill(-26), Ok(2));
-        assert_eq!(interp.inverse_ffill(-25), Ok(2));
-        assert_eq!(interp.inverse_ffill(-24), Ok(3));
-        assert_eq!(interp.inverse_ffill(-20), Ok(5));
-        assert_eq!(interp.inverse_ffill(-19), Ok(5));
+        assert_eq!(interp.inverse(-31, Method::ForwardFill), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse(-30, Method::ForwardFill), Ok(0));
+        assert_eq!(interp.inverse(-29, Method::ForwardFill), Ok(0));
+        assert_eq!(interp.inverse(-28, Method::ForwardFill), Ok(1));
+        assert_eq!(interp.inverse(-27, Method::ForwardFill), Ok(1));
+        assert_eq!(interp.inverse(-26, Method::ForwardFill), Ok(2));
+        assert_eq!(interp.inverse(-25, Method::ForwardFill), Ok(2));
+        assert_eq!(interp.inverse(-24, Method::ForwardFill), Ok(3));
+        assert_eq!(interp.inverse(-20, Method::ForwardFill), Ok(5));
+        assert_eq!(interp.inverse(-19, Method::ForwardFill), Ok(5));
     }
 
     #[test]
@@ -301,16 +329,16 @@ mod tests {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<i64> = vec![-30, -20];
         let interp = Interp::new(xp, fp);
-        assert_eq!(interp.inverse_bfill(-31), Ok(0));
-        assert_eq!(interp.inverse_bfill(-30), Ok(0));
-        assert_eq!(interp.inverse_bfill(-29), Ok(1));
-        assert_eq!(interp.inverse_bfill(-28), Ok(1));
-        assert_eq!(interp.inverse_bfill(-27), Ok(2));
-        assert_eq!(interp.inverse_bfill(-26), Ok(2));
-        assert_eq!(interp.inverse_bfill(-25), Ok(3));
-        assert_eq!(interp.inverse_bfill(-24), Ok(3));
-        assert_eq!(interp.inverse_bfill(-20), Ok(5));
-        assert_eq!(interp.inverse_bfill(-19), Err(InterpError::OutOfBounds));
+        assert_eq!(interp.inverse(-31, Method::BackwardFill), Ok(0));
+        assert_eq!(interp.inverse(-30, Method::BackwardFill), Ok(0));
+        assert_eq!(interp.inverse(-29, Method::BackwardFill), Ok(1));
+        assert_eq!(interp.inverse(-28, Method::BackwardFill), Ok(1));
+        assert_eq!(interp.inverse(-27, Method::BackwardFill), Ok(2));
+        assert_eq!(interp.inverse(-26, Method::BackwardFill), Ok(2));
+        assert_eq!(interp.inverse(-25, Method::BackwardFill), Ok(3));
+        assert_eq!(interp.inverse(-24, Method::BackwardFill), Ok(3));
+        assert_eq!(interp.inverse(-20, Method::BackwardFill), Ok(5));
+        assert_eq!(interp.inverse(-19, Method::BackwardFill), Err(InterpError::OutOfBounds));
     }
 
     #[test]
@@ -318,20 +346,20 @@ mod tests {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<F80> = vec![F80::from(20.0), F80::from(30.0)];
         let interp = Interp::new(xp, fp);
-        assert_eq!(interp.inverse_round(F80::from(19.9)), Ok(0));
-        assert_eq!(interp.inverse_round(F80::from(20.0)), Ok(0));
-        assert_eq!(interp.inverse_round(F80::from(20.1)), Ok(0));
-        assert_eq!(interp.inverse_round(F80::from(20.9)), Ok(0));
-        assert_eq!(interp.inverse_round(F80::from(21.1)), Ok(1));
-        assert_eq!(interp.inverse_round(F80::from(22.0)), Ok(1));
-        assert_eq!(interp.inverse_round(F80::from(29.9)), Ok(5));
-        assert_eq!(interp.inverse_round(F80::from(30.0)), Ok(5));
-        assert_eq!(interp.inverse_round(F80::from(30.1)), Ok(5));
-        assert_eq!(interp.inverse_round(F80::from(21.0)), Ok(0));
-        assert_eq!(interp.inverse_round(F80::from(23.0)), Ok(2));
-        assert_eq!(interp.inverse_round(F80::from(25.0)), Ok(2));
-        assert_eq!(interp.inverse_round(F80::from(27.0)), Ok(4));
-        assert_eq!(interp.inverse_round(F80::from(29.0)), Ok(4));
+        assert_eq!(interp.inverse(F80::from(19.9), Method::Nearest), Ok(0));
+        assert_eq!(interp.inverse(F80::from(20.0), Method::Nearest), Ok(0));
+        assert_eq!(interp.inverse(F80::from(20.1), Method::Nearest), Ok(0));
+        assert_eq!(interp.inverse(F80::from(20.9), Method::Nearest), Ok(0));
+        assert_eq!(interp.inverse(F80::from(21.1), Method::Nearest), Ok(1));
+        assert_eq!(interp.inverse(F80::from(22.0), Method::Nearest), Ok(1));
+        assert_eq!(interp.inverse(F80::from(29.9), Method::Nearest), Ok(5));
+        assert_eq!(interp.inverse(F80::from(30.0), Method::Nearest), Ok(5));
+        assert_eq!(interp.inverse(F80::from(30.1), Method::Nearest), Ok(5));
+        assert_eq!(interp.inverse(F80::from(21.0), Method::Nearest), Ok(0));
+        assert_eq!(interp.inverse(F80::from(23.0), Method::Nearest), Ok(2));
+        assert_eq!(interp.inverse(F80::from(25.0), Method::Nearest), Ok(2));
+        assert_eq!(interp.inverse(F80::from(27.0), Method::Nearest), Ok(4));
+        assert_eq!(interp.inverse(F80::from(29.0), Method::Nearest), Ok(4));
     }
 
     #[test]
@@ -343,19 +371,19 @@ mod tests {
             interp.inverse_ffill(F80::from(19.9)),
             Err(InterpError::OutOfBounds)
         );
-        assert_eq!(interp.inverse_ffill(F80::from(20.0)), Ok(0));
-        assert_eq!(interp.inverse_ffill(F80::from(20.1)), Ok(0));
-        assert_eq!(interp.inverse_ffill(F80::from(20.9)), Ok(0));
-        assert_eq!(interp.inverse_ffill(F80::from(21.1)), Ok(0));
-        assert_eq!(interp.inverse_ffill(F80::from(22.0)), Ok(1));
-        assert_eq!(interp.inverse_ffill(F80::from(29.9)), Ok(4));
-        assert_eq!(interp.inverse_ffill(F80::from(30.0)), Ok(5));
-        assert_eq!(interp.inverse_ffill(F80::from(30.1)), Ok(5));
-        assert_eq!(interp.inverse_ffill(F80::from(21.0)), Ok(0));
-        assert_eq!(interp.inverse_ffill(F80::from(23.0)), Ok(1));
-        assert_eq!(interp.inverse_ffill(F80::from(25.0)), Ok(2));
-        assert_eq!(interp.inverse_ffill(F80::from(27.0)), Ok(3));
-        assert_eq!(interp.inverse_ffill(F80::from(29.0)), Ok(4));
+        assert_eq!(interp.inverse(F80::from(20.0), Method::ForwardFill), Ok(0));
+        assert_eq!(interp.inverse(F80::from(20.1), Method::ForwardFill), Ok(0));
+        assert_eq!(interp.inverse(F80::from(20.9), Method::ForwardFill), Ok(0));
+        assert_eq!(interp.inverse(F80::from(21.1), Method::ForwardFill), Ok(0));
+        assert_eq!(interp.inverse(F80::from(22.0), Method::ForwardFill), Ok(1));
+        assert_eq!(interp.inverse(F80::from(29.9), Method::ForwardFill), Ok(4));
+        assert_eq!(interp.inverse(F80::from(30.0), Method::ForwardFill), Ok(5));
+        assert_eq!(interp.inverse(F80::from(30.1), Method::ForwardFill), Ok(5));
+        assert_eq!(interp.inverse(F80::from(21.0), Method::ForwardFill), Ok(0));
+        assert_eq!(interp.inverse(F80::from(23.0), Method::ForwardFill), Ok(1));
+        assert_eq!(interp.inverse(F80::from(25.0), Method::ForwardFill), Ok(2));
+        assert_eq!(interp.inverse(F80::from(27.0), Method::ForwardFill), Ok(3));
+        assert_eq!(interp.inverse(F80::from(29.0), Method::ForwardFill), Ok(4));
     }
 
     #[test]
@@ -363,23 +391,23 @@ mod tests {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<F80> = vec![F80::from(20.0), F80::from(30.0)];
         let interp = Interp::new(xp, fp);
-        assert_eq!(interp.inverse_bfill(F80::from(19.9)), Ok(0));
-        assert_eq!(interp.inverse_bfill(F80::from(20.0)), Ok(0));
-        assert_eq!(interp.inverse_bfill(F80::from(20.1)), Ok(1));
-        assert_eq!(interp.inverse_bfill(F80::from(20.9)), Ok(1));
-        assert_eq!(interp.inverse_bfill(F80::from(21.1)), Ok(1));
-        assert_eq!(interp.inverse_bfill(F80::from(22.0)), Ok(1));
-        assert_eq!(interp.inverse_bfill(F80::from(29.9)), Ok(5));
-        assert_eq!(interp.inverse_bfill(F80::from(30.0)), Ok(5));
+        assert_eq!(interp.inverse(F80::from(19.9), Method::BackwardFill), Ok(0));
+        assert_eq!(interp.inverse(F80::from(20.0), Method::BackwardFill), Ok(0));
+        assert_eq!(interp.inverse(F80::from(20.1), Method::BackwardFill), Ok(1));
+        assert_eq!(interp.inverse(F80::from(20.9), Method::BackwardFill), Ok(1));
+        assert_eq!(interp.inverse(F80::from(21.1), Method::BackwardFill), Ok(1));
+        assert_eq!(interp.inverse(F80::from(22.0), Method::BackwardFill), Ok(1));
+        assert_eq!(interp.inverse(F80::from(29.9), Method::BackwardFill), Ok(5));
+        assert_eq!(interp.inverse(F80::from(30.0), Method::BackwardFill), Ok(5));
         assert_eq!(
-            interp.inverse_bfill(F80::from(30.1)),
+            interp.inverse(F80::from(30.1), Method::BackwardFill),
             Err(InterpError::OutOfBounds)
         );
-        assert_eq!(interp.inverse_bfill(F80::from(21.0)), Ok(1));
-        assert_eq!(interp.inverse_bfill(F80::from(23.0)), Ok(2));
-        assert_eq!(interp.inverse_bfill(F80::from(25.0)), Ok(3));
-        assert_eq!(interp.inverse_bfill(F80::from(27.0)), Ok(4));
-        assert_eq!(interp.inverse_bfill(F80::from(29.0)), Ok(5));
+        assert_eq!(interp.inverse(F80::from(21.0), Method::BackwardFill), Ok(1));
+        assert_eq!(interp.inverse(F80::from(23.0), Method::BackwardFill), Ok(2));
+        assert_eq!(interp.inverse(F80::from(25.0), Method::BackwardFill), Ok(3));
+        assert_eq!(interp.inverse(F80::from(27.0), Method::BackwardFill), Ok(4));
+        assert_eq!(interp.inverse(F80::from(29.0), Method::BackwardFill), Ok(5));
     }
 
     #[test]
@@ -393,40 +421,40 @@ mod tests {
     #[test]
     fn test_inverse_exact_big_numbers() {
         let interp = Interp::new(vec![0, u64::MAX], vec![i64::MIN, i64::MAX]);
-        assert_eq!(interp.inverse_exact(i64::MIN), Ok(0));
-        assert_eq!(interp.inverse_exact(i64::MAX), Ok(u64::MAX));
-        assert_eq!(interp.inverse_exact(0), Ok(u64::MAX / 2 + 1));
+        assert_eq!(interp.inverse(i64::MIN, Method::None), Ok(0));
+        assert_eq!(interp.inverse(i64::MAX, Method::None), Ok(u64::MAX));
+        assert_eq!(interp.inverse(0, Method::None), Ok(u64::MAX / 2 + 1));
     }
 
     #[test]
     fn test_inverse_round_big_numbers() {
         let interp = Interp::new(vec![0, u64::MAX], vec![i64::MIN, i64::MAX]);
-        assert_eq!(interp.inverse_round(i64::MIN), Ok(0));
-        assert_eq!(interp.inverse_round(i64::MAX), Ok(u64::MAX));
-        assert_eq!(interp.inverse_round(0), Ok(u64::MAX / 2 + 1));
+        assert_eq!(interp.inverse(i64::MIN, Method::Nearest), Ok(0));
+        assert_eq!(interp.inverse(i64::MAX, Method::Nearest), Ok(u64::MAX));
+        assert_eq!(interp.inverse(0, Method::Nearest), Ok(u64::MAX / 2 + 1));
     }
 
     #[test]
     fn test_inverse_ffill_big_numbers() {
         let interp = Interp::new(vec![0, u64::MAX], vec![i64::MIN, i64::MAX]);
-        assert_eq!(interp.inverse_ffill(i64::MIN), Ok(0));
-        assert_eq!(interp.inverse_ffill(i64::MAX), Ok(u64::MAX));
-        assert_eq!(interp.inverse_ffill(0), Ok(u64::MAX / 2 + 1));
+        assert_eq!(interp.inverse(i64::MIN, Method::ForwardFill), Ok(0));
+        assert_eq!(interp.inverse(i64::MAX, Method::ForwardFill), Ok(u64::MAX));
+        assert_eq!(interp.inverse(0, Method::ForwardFill), Ok(u64::MAX / 2 + 1));
     }
 
     #[test]
     fn test_inverse_bfill_big_numbers() {
         let interp = Interp::new(vec![0, u64::MAX], vec![i64::MIN, i64::MAX]);
-        assert_eq!(interp.inverse_bfill(i64::MIN), Ok(0));
-        assert_eq!(interp.inverse_bfill(i64::MAX), Ok(u64::MAX));
-        assert_eq!(interp.inverse_bfill(0), Ok(u64::MAX / 2 + 1));
+        assert_eq!(interp.inverse(i64::MIN, Method::BackwardFill), Ok(0));
+        assert_eq!(interp.inverse(i64::MAX, Method::BackwardFill), Ok(u64::MAX));
+        assert_eq!(interp.inverse(0, Method::BackwardFill), Ok(u64::MAX / 2 + 1));
     }
 
     #[test]
-    fn test_something() {
+    fn test_use_case() {
         let xp: Vec<u64> = vec![0, 8];
         let fp: Vec<F80> = vec![F80::from(100.0), F80::from(900.0)];
         let interp = Interp::new(xp, fp);
-        assert_eq!(interp.inverse_round(F80::from(175.0)), Ok(1))
+        assert_eq!(interp.inverse(F80::from(175.0), Method::Nearest), Ok(1))
     }
 }
