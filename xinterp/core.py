@@ -113,7 +113,7 @@ def check(xp, fp, x=None, f=None):
             raise ValueError("x and xp must have the same dtype")
         if not np.all(x >= 0):
             raise ValueError("x values must be positive")
-        if not np.all(np.diff(xp) > 0):
+        if not np.all(xp[1:] > xp[:-1]):
             raise ValueError("xp must be strictly increasing")
     if f is not None:
         f = np.asarray(f)
@@ -121,7 +121,7 @@ def check(xp, fp, x=None, f=None):
             raise ValueError("f must be 1D array")
         if not f.dtype == fp.dtype:
             raise ValueError("f and fp must have the same dtype")
-        if not np.all(np.diff(fp) > 0):
+        if not np.all(fp[1:] > fp[:-1]):
             raise ValueError("fp must be strictly increasing")
     return xp, fp, x, f
 
