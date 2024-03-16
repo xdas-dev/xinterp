@@ -107,6 +107,8 @@ def check(xp, fp, x=None, f=None):
         raise ValueError("xp must have integer dtype")
     if not np.all(xp >= 0):
         raise ValueError("xp values must be positive")
+    if not np.all(np.isfinite(fp)):
+        raise ValueError("fp values must be finite")
     if (x is None) == (f is None):
         raise ValueError("either x or f must be provided")
     if x is not None:
@@ -135,6 +137,8 @@ def check(xp, fp, x=None, f=None):
             raise ValueError("f must be 1D or scalar")
         if not f.dtype == fp.dtype:
             raise ValueError("f and fp must have the same dtype")
+        if not np.all(np.isfinite(f)):
+            raise ValueError("f values must be finite")
         if not np.all(fp[1:] > fp[:-1]):
             raise ValueError("fp must be strictly increasing")
     return xp, fp, x, f, isscalar

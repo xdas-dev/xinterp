@@ -33,6 +33,12 @@ class TestForward:
         with pytest.raises(ValueError, match="x values must be positive"):
             forward([-1], [1, 2], [3, 5])
 
+    def test_raises_not_finite(self):
+        with pytest.raises(ValueError, match="fp values must be finite"):
+            forward([1], [0, 2], [np.nan, np.nan])
+        with pytest.raises(ValueError, match="fp values must be finite"):
+            forward([1], [0, 2], [np.inf, np.inf])
+
     def test_dtype_matching(self):
         forward([1.0], [0, 2], [3, 5]) == 4
         forward([1], [0, 2], [3.0, 5.0]) == 4.0
@@ -127,6 +133,16 @@ class TestInverse:
     def test_raises_not_positive(self):
         with pytest.raises(ValueError, match="xp values must be positive"):
             inverse([4], [-1, 2], [3, 5])
+
+    def test_raises_not_finite(self):
+        with pytest.raises(ValueError, match="fp values must be finite"):
+            inverse([4.0], [0, 2], [np.nan, np.nan])
+        with pytest.raises(ValueError, match="fp values must be finite"):
+            inverse([4.0], [0, 2], [np.inf, np.inf])
+        with pytest.raises(ValueError, match="f values must be finite"):
+            inverse([np.nan], [0, 2], [3.0, 5.0])
+        with pytest.raises(ValueError, match="f values must be finite"):
+            inverse([np.inf], [0, 2], [3.0, 5.0])
 
     def test_dtype_matching(self):
         inverse([4.0], [0, 2], [3, 5]) == 1
