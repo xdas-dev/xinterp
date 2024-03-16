@@ -4,7 +4,6 @@ pub mod piecewise;
 pub mod schemes;
 
 use crate::divop::Method;
-use crate::extended::F80;
 use crate::piecewise::{Interp, InterpError};
 use numpy::ndarray::Array1;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
@@ -49,12 +48,11 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         let x = x.as_array();
         let xp = xp.as_array().to_vec();
         let fp = fp.as_array().to_vec();
-        let fp = fp.iter().map(|&f| F80::from(f)).collect();
         let interp = Interp::new(xp, fp);
         let mut f = Array1::zeros(x.len());
         for (index, value) in x.iter().zip(f.iter_mut()) {
             match interp.forward(*index) {
-                Ok(result) => *value = result.into(),
+                Ok(result) => *value = result,
                 Err(InterpError::NotStrictlyIncreasing) => {
                     return Err(PyValueError::new_err("xp must be strictly increasing"))
                 }
@@ -115,7 +113,6 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         let f = f.as_array();
         let xp = xp.as_array().to_vec();
         let fp = fp.as_array().to_vec();
-        let fp = fp.iter().map(|&f| F80::from(f)).collect();
         let method = match method {
             None => Method::None,
             Some("nearest") => Method::Nearest,
@@ -130,7 +127,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         let interp = Interp::new(xp, fp);
         let mut x = Array1::zeros(f.len());
         for (value, index) in f.iter().zip(x.iter_mut()) {
-            match interp.inverse(F80::from(*value), method) {
+            match interp.inverse(*value, method) {
                 Ok(result) => *index = result,
                 Err(InterpError::NotStrictlyIncreasing) => {
                     return Err(PyValueError::new_err("fp must be strictly increasing"))

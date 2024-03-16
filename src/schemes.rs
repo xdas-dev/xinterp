@@ -13,7 +13,7 @@ use crate::divop::{DivOp, Method};
 use crate::extended::F80;
 
 /// Implements forward scheme from index to value.
-pub trait Forward<F>: Clone + Ord {
+pub trait Forward<F>: Copy + Ord {
     /// Estimate f at index x between two points (x0, f0) and (x1, f1)
     fn forward(self, x0: Self, x1: Self, f0: F, f1: F) -> F;
 }
@@ -30,19 +30,22 @@ impl Forward<i64> for u64 {
             .to_signed()
     }
 }
-impl Forward<F80> for u64 {
-    fn forward(self, x0: u64, x1: u64, f0: F80, f1: F80) -> F80 {
+impl Forward<f64> for u64 {
+    fn forward(self, x0: u64, x1: u64, f0: f64, f1: f64) -> f64 {
         let x = F80::from(self);
         let x0 = F80::from(x0);
         let x1 = F80::from(x1);
+        let f0 = F80::from(f0);
+        let f1 = F80::from(f1);
         f0.mul(&x1.sub(&x))
             .add(&f1.mul(&x.sub(&x0)))
             .div(&x1.sub(&x0))
+            .into()
     }
 }
 
 /// Implements inverse scheme from value to index.
-pub trait Inverse<X>: Clone + Ord {
+pub trait Inverse<X>: Copy + PartialOrd {
     fn inverse(self, x0: X, x1: X, f0: Self, f1: Self, method: Method) -> Option<X>;
 }
 impl Inverse<u64> for u64 {
@@ -58,13 +61,16 @@ impl Inverse<u64> for i64 {
             .inverse(x0, x1, f0.to_unsigned(), f1.to_unsigned(), method)
     }
 }
-impl Inverse<u64> for F80 {
-    fn inverse(self, x0: u64, x1: u64, f0: F80, f1: F80, method: Method) -> Option<u64> {
+impl Inverse<u64> for f64 {
+    fn inverse(self, x0: u64, x1: u64, f0: f64, f1: f64, method: Method) -> Option<u64> {
+        let f = F80::from(self);
         let x0 = F80::from(x0);
         let x1 = F80::from(x1);
+        let f0 = F80::from(f0);
+        let f1 = F80::from(f1);
         let x = x0
-            .mul(&f1.sub(&self))
-            .add(&x1.mul(&self.sub(&f0)))
+            .mul(&f1.sub(&f))
+            .add(&x1.mul(&f.sub(&f0)))
             .div(&f1.sub(&f0));
         match method {
             Method::None => {
