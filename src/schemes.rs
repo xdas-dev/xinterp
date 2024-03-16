@@ -46,6 +46,7 @@ impl Forward<f64> for u64 {
 
 /// Implements inverse scheme from value to index.
 pub trait Inverse<X>: Copy + PartialOrd {
+    /// Estimate x at values f between two points (x0, f0) and (x1, f1)
     fn inverse(self, x0: X, x1: X, f0: Self, f1: Self, method: Method) -> Option<X>;
 }
 impl Inverse<u64> for u64 {

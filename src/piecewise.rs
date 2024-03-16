@@ -1,8 +1,41 @@
-//! Forward and inverse interpolation on piecewise linear functions.
+//! Forward and inverse integer interpolation on piecewise linear functions.
+//!
+//! This module provides functionality for performing forward and inverse interpolation
+//! on piecewise linear functions. Forward interpolation estimates the value of the function
+//! at a given index within the range of known data points, while inverse interpolation
+//! estimates the index corresponding to a given value of the function.
+//!
+//! # Examples
+//!
+//! ```
+//! use xinterp::{Interp, InterpError};
+//! use xinterp::divop::Method;
+//!
+//! let xp = vec![0, 2, 4];
+//! let fp = vec![0.0, 4.0, 16.0];
+//!
+//! let interp = Interp::new(xp, fp);
+//!
+//! let result = interp.forward(3);
+//! assert_eq!(result, Ok(10.0));
+//!
+//! let result = interp.inverse(10.1, Method::Nearest);
+//! assert_eq!(result, Ok(3));
+//! ```
+//!
+//! # Errors
+//!
+//! - `InterpError::OutOfBounds`: Indicates that the input value is outside the range of known
+//! data points.
+//! - `InterpError::NotFound`: Indicates that the output value does not exist within the range of
+//! known data points.
+//! - `InterpError::NotStrictlyIncreasing`: Indicates that the input or output values are not
+//! strictly increasing, which is required for interpolation.
 
 use crate::divop::Method;
 use crate::schemes::{Forward, Inverse};
 
+// Interpolation Errors
 #[derive(PartialEq, Debug)]
 pub enum InterpError {
     OutOfBounds,
@@ -10,6 +43,7 @@ pub enum InterpError {
     NotStrictlyIncreasing,
 }
 
+/// Structure for performing forward and inverse interpolation on piecewise linear functions.
 pub struct Interp<X, F> {
     xp: Vec<X>,
     fp: Vec<F>,
@@ -22,6 +56,16 @@ where
     X: Forward<F>,
     F: Inverse<X>,
 {
+    /// Constructs a new Interp instance with the given data points.
+    ///
+    /// # Arguments
+    ///
+    /// * `xp` - Vector of indices.
+    /// * `fp` - Vector of corresponding values.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the lengths of `xp` and `fp` are not equal.
     pub fn new(xp: Vec<X>, fp: Vec<F>) -> Interp<X, F> {
         assert!(xp.len() == fp.len(), "xp and fp must have same length");
         let forwardable = xp.windows(2).all(|pair| pair[0] < pair[1]);
@@ -33,6 +77,16 @@ where
             inversable,
         }
     }
+    /// Performs forward interpolation at the given index.
+    ///
+    /// # Arguments
+    ///
+    /// * `rhs` - The index for forward interpolation.
+    ///
+    /// # Returns
+    ///
+    /// If successful, returns the interpolated value.
+    /// Otherwise, returns an error indicating the reason for failure.
     pub fn forward(&self, rhs: X) -> Result<F, InterpError> {
         if self.forwardable {
             match self.xp.binary_search(&rhs) {
@@ -50,6 +104,17 @@ where
             Err(InterpError::NotStrictlyIncreasing)
         }
     }
+    /// Performs inverse interpolation at the given value.
+    ///
+    /// # Arguments
+    ///
+    /// * `rhs` - The value for inverse interpolation.
+    /// * `method` - The rounding method to use in case of inexact matching.
+    ///
+    /// # Returns
+    ///
+    /// If successful, returns the interpolated input value.
+    /// Otherwise, returns an error indicating the reason for failure.
     pub fn inverse(&self, rhs: F, method: Method) -> Result<X, InterpError> {
         if self.inversable {
             match self

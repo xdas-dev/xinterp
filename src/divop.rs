@@ -1,5 +1,6 @@
 //! Integer division with different rounding rules
 
+/// Rounding methods for integer division.
 #[derive(Clone, Copy)]
 pub enum Method {
     None,
@@ -10,6 +11,17 @@ pub enum Method {
 
 /// Traits for performing division operations with different rounding rules.
 pub trait DivOp: Sized {
+    /// Performs division with the specified rounding method.
+    ///
+    /// # Arguments
+    ///
+    /// * `rhs` - The divisor.
+    /// * `method` - The rounding method to use.
+    ///
+    /// # Returns
+    ///
+    /// It returns None if `None` rounding is chosen and the division is inexact. Otherwise, it
+    /// returns the exact or rounded quotient.  
     fn div(self, rhs: Self, method: Method) -> Option<Self>;
 }
 

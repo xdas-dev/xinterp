@@ -101,12 +101,13 @@ impl From<F80> for u64 {
 }
 impl Eq for F80 {}
 impl Ord for F80 {
-    /// Implements the total ordering of F80.
+    /// Compares two F80.
     fn cmp(&self, other: &F80) -> Ordering {
         self.value.partial_cmp(&other.value).unwrap()
     }
 }
 impl PartialOrd for F80 {
+    /// Compares two F80.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
