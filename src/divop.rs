@@ -30,12 +30,10 @@ impl DivOp for u128 {
                     Some(div)
                 } else if rem * 2 > rhs {
                     Some(div + 1)
+                } else if div % 2 == 0 {
+                    Some(div)
                 } else {
-                    if div % 2 == 0 {
-                        Some(div)
-                    } else {
-                        Some(div + 1)
-                    }
+                    Some(div + 1)
                 }
             }
             Method::ForwardFill => Some(div),

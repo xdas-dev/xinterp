@@ -38,7 +38,6 @@ impl Forward<F80> for u64 {
         f0.mul(&x1.sub(&x))
             .add(&f1.mul(&x.sub(&x0)))
             .div(&x1.sub(&x0))
-            .into()
     }
 }
 

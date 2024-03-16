@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 /// imposed one word (64 bits) mantissa. It implements total ordering by only allowing finite
 /// values (no nan or inf). It expose some basic methods of BigFloat. Use the From/Into traits
 /// to initialize some instance of this struct from u64 or f64.  
-#[derive(Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct F80 {
     value: BigFloat,
 }
@@ -103,7 +103,12 @@ impl Eq for F80 {}
 impl Ord for F80 {
     /// Implements the total ordering of F80.
     fn cmp(&self, other: &F80) -> Ordering {
-        self.partial_cmp(other).unwrap()
+        self.value.partial_cmp(&other.value).unwrap()
+    }
+}
+impl PartialOrd for F80 {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 impl F80 {
