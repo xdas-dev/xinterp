@@ -17,11 +17,11 @@ class TestForward:
         with pytest.raises(ValueError, match="xp and fp must have the same length"):
             forward([1], [0, 2, 5], [3, 5])
 
-    def test_raises_only_one_element(self):
+    def test_raises_at_no_element(self):
         with pytest.raises(
-            ValueError, match="xp and fp must have at least two elements"
+            ValueError, match="xp and fp must have at least one elements"
         ):
-            forward([1], [0], [3])
+            forward([1], [], [])
 
     def test_raises_xp_not_integer(self):
         with pytest.raises(ValueError, match="xp must have integer dtype"):
@@ -78,6 +78,16 @@ class TestForward:
         assert forward([1], [0, 2], np.array([3, 5], "f4")).ndim == 1
         assert forward(1, [0, 2], np.array([3, 5], "f4")).ndim == 0
 
+    def test_empty_handling(self):
+        assert forward([], [0, 2], [3, 5]).shape == (0,)
+        assert forward([], [0, 2], np.array([3, 5], "M8[s]")).shape == (0,)
+        assert forward([], [0, 2], np.array([3, 5], "f4")).shape == (0,)
+
+    def test_singleton_handling(self):
+        assert forward(0, [0], [3]) == 3
+        assert forward(0, [0], [3.0]) == 3.0
+        assert forward(0, [0], np.array([3], "M8[s]")) == np.array([3], "M8[s]")
+
     def test_interpolation_accuracy_int(self):
         rng = np.random.default_rng(42)
         n = 1_000
@@ -120,11 +130,11 @@ class TestInverse:
         with pytest.raises(ValueError, match="xp and fp must have the same length"):
             inverse([4], [0, 2, 5], [3, 5])
 
-    def test_raises_only_one_element(self):
+    def test_raises_no_element(self):
         with pytest.raises(
-            ValueError, match="xp and fp must have at least two elements"
+            ValueError, match="xp and fp must have at least one elements"
         ):
-            inverse([4], [0], [3])
+            inverse([4], [], [])
 
     def test_raises_xp_not_integer(self):
         with pytest.raises(ValueError, match="xp must have integer dtype"):
@@ -206,6 +216,24 @@ class TestInverse:
         )
         assert (
             inverse(np.array(4, "M8[s]"), [0, 2], np.array([3, 5], "M8[s]")).ndim == 0
+        )
+
+    def test_empty_handling(self):
+        assert inverse([], [0, 2], [3, 5]).shape == (0,)
+        assert inverse([], [0, 2], [3.0, 5.0]).shape == (0,)
+        assert inverse(
+            np.array([], "M8[s]"), [0, 2], np.array([3, 5], "M8[s]")
+        ).shape == (0,)
+
+    def test_singleton_handling(self):
+        assert inverse(3, [0], [3]) == 0
+        assert inverse(3.0, [0], [3.0]) == 0
+        assert inverse(np.array(3, "M8[s]"), [0], np.array([3], "M8[s]")) == 0
+        assert inverse(4, [0], [3], method="nearest") == 0
+        assert inverse(4.0, [0], [3.0], method="nearest") == 0
+        assert (
+            inverse(np.array(4, "M8[s]"), [0], np.array([3], "M8[s]"), method="nearest")
+            == 0
         )
 
     def test_interpolation_accuracy_int(self):

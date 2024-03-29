@@ -101,8 +101,8 @@ def check(xp, fp, x=None, f=None):
         raise ValueError("xp and fp must be 1D")
     if not (len(xp) == len(fp)):
         raise ValueError("xp and fp must have the same length")
-    if not (len(xp) > 1 and len(fp) > 1):
-        raise ValueError("xp and fp must have at least two elements")
+    if not (len(xp) > 0 and len(fp) > 0):
+        raise ValueError("xp and fp must have at least one elements")
     if not np.issubdtype(xp.dtype, np.integer):
         raise ValueError("xp must have integer dtype")
     if not np.all(xp >= 0):
