@@ -145,16 +145,8 @@ impl F80 {
     }
     /// Rounds a F80  to its nearest integer using the round ties to even rule.
     pub fn round(&self) -> F80 {
-        let floor = self.floor();
-        let ceil = self.ceil();
-        let mid = floor.add(&ceil).div(&F80::from(2));
-        match self.cmp(&mid) {
-            Ordering::Less => floor,
-            Ordering::Equal => match floor.rem(&F80::from(2)).eq(&F80::from(0)) {
-                true => floor,
-                false => ceil,
-            },
-            Ordering::Greater => ceil,
+        F80 {
+            value: self.value.round(0, RoundingMode::ToEven),
         }
     }
     /// Floors a F80.
