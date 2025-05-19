@@ -36,7 +36,7 @@ fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
                 Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
             }
         }
-        Ok(f.into_pyarray_bound(py))
+        Ok(f.into_pyarray(py))
     }
     #[pyfn(m)]
     fn forward_float<'py>(
@@ -62,7 +62,7 @@ fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
                 Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
             }
         }
-        Ok(f.into_pyarray_bound(py))
+        Ok(f.into_pyarray(py))
     }
     #[pyfn(m)]
     #[pyo3(signature = (f, xp, fp, method=None))]
@@ -101,7 +101,7 @@ fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
                 Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
         }
-        Ok(x.into_pyarray_bound(py))
+        Ok(x.into_pyarray(py))
     }
     #[pyfn(m)]
     #[pyo3(signature = (f, xp, fp, method=None))]
@@ -140,7 +140,7 @@ fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
                 Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
         }
-        Ok(x.into_pyarray_bound(py))
+        Ok(x.into_pyarray(py))
     }
     Ok(())
 }
