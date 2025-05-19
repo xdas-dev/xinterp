@@ -8,17 +8,17 @@ use crate::piecewise::{Interp, InterpError};
 use numpy::ndarray::Array1;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
 use pyo3::exceptions::{PyIndexError, PyKeyError, PyValueError};
-use pyo3::prelude::*;
+use pyo3::{pymodule, types::PyModule, Bound, PyResult, Python};
 
 #[pymodule]
-fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
+fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
     #[pyfn(m)]
     fn forward_int<'py>(
         py: Python<'py>,
         x: PyReadonlyArray1<'py, u64>,
         xp: PyReadonlyArray1<'py, u64>,
         fp: PyReadonlyArray1<'py, i64>,
-    ) -> PyResult<&'py PyArray1<i64>> {
+    ) -> PyResult<Bound<'py, PyArray1<i64>>> {
         let x = x.as_array();
         let xp = xp.as_array();
         let fp = fp.as_array();
@@ -36,7 +36,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
             }
         }
-        Ok(f.into_pyarray(py))
+        Ok(f.into_pyarray_bound(py))
     }
     #[pyfn(m)]
     fn forward_float<'py>(
@@ -44,7 +44,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
         x: PyReadonlyArray1<'py, u64>,
         xp: PyReadonlyArray1<'py, u64>,
         fp: PyReadonlyArray1<'py, f64>,
-    ) -> PyResult<&'py PyArray1<f64>> {
+    ) -> PyResult<Bound<'py, PyArray1<f64>>> {
         let x = x.as_array();
         let xp = xp.as_array().to_vec();
         let fp = fp.as_array().to_vec();
@@ -62,16 +62,17 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
             }
         }
-        Ok(f.into_pyarray(py))
+        Ok(f.into_pyarray_bound(py))
     }
     #[pyfn(m)]
+    #[pyo3(signature = (f, xp, fp, method=None))]
     fn inverse_int<'py>(
         py: Python<'py>,
         f: PyReadonlyArray1<'py, i64>,
         xp: PyReadonlyArray1<'py, u64>,
         fp: PyReadonlyArray1<'py, i64>,
         method: Option<&str>,
-    ) -> PyResult<&'py PyArray1<u64>> {
+    ) -> PyResult<Bound<'py, PyArray1<u64>>> {
         let f = f.as_array();
         let xp = xp.as_array();
         let fp = fp.as_array();
@@ -100,16 +101,17 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
         }
-        Ok(x.into_pyarray(py))
+        Ok(x.into_pyarray_bound(py))
     }
     #[pyfn(m)]
+    #[pyo3(signature = (f, xp, fp, method=None))]
     fn inverse_float<'py>(
         py: Python<'py>,
         f: PyReadonlyArray1<'py, f64>,
         xp: PyReadonlyArray1<'py, u64>,
         fp: PyReadonlyArray1<'py, f64>,
         method: Option<&str>,
-    ) -> PyResult<&'py PyArray1<u64>> {
+    ) -> PyResult<Bound<'py, PyArray1<u64>>> {
         let f = f.as_array();
         let xp = xp.as_array().to_vec();
         let fp = fp.as_array().to_vec();
@@ -138,7 +140,7 @@ fn rust<'py>(_py: Python<'py>, m: &'py PyModule) -> PyResult<()> {
                 Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
         }
-        Ok(x.into_pyarray(py))
+        Ok(x.into_pyarray_bound(py))
     }
     Ok(())
 }
