@@ -142,5 +142,36 @@ fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
         }
         Ok(x.into_pyarray(py))
     }
+    #[pyfn(m)]
+    fn simplify_int<'py>(
+        py: Python<'py>,
+        xp: PyReadonlyArray1<'py, u64>,
+        fp: PyReadonlyArray1<'py, i64>,
+        tolerance: i64,
+    ) -> PyResult<(Bound<'py, PyArray1<u64>>, Bound<'py, PyArray1<i64>>)> {
+        let xp = xp.as_array().to_vec();
+        let fp = fp.as_array().to_vec();
+        let interp = Interp::new(xp, fp);
+        let interp = interp.simplify(tolerance);
+        let x = interp.xp;
+        let f = interp.fp;
+        Ok((x.into_pyarray(py), f.into_pyarray(py)))
+    }
+    #[pyfn(m)]
+    fn simplify_float<'py>(
+        py: Python<'py>,
+        xp: PyReadonlyArray1<'py, u64>,
+        fp: PyReadonlyArray1<'py, f64>,
+        tolerance: f64,
+    ) -> PyResult<(Bound<'py, PyArray1<u64>>, Bound<'py, PyArray1<f64>>)> {
+        let xp = xp.as_array().to_vec();
+        let fp = fp.as_array().to_vec();
+        let interp = Interp::new(xp, fp);
+        let interp = interp.simplify(tolerance);
+        let x = interp.xp;
+        let f = interp.fp;
+        Ok((x.into_pyarray(py), f.into_pyarray(py)))
+    }
     Ok(())
+
 }

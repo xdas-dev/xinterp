@@ -61,9 +61,32 @@ def inverse(f, xp, fp, method=None):
     return _inverse(xp, fp, f=f, method=method)
 
 
-def wraps(func_int, func_float):
+def simplify(xp, fp, tolerance=None):
+    """
+    Simplify the input data using the Douglas-Peucker algorithm.
+
+    Parameters
+    ----------
+    xp : 1-D sequence of positive integers
+        The indices of the data points, must be strictly increasing.
+    fp : 1-D sequence of floats, integers or datetime64s
+        The values of the data points, same length as `xp`.
+    tolerance : integer, float or timedelta64, optional
+        The tolerance for simplification. Default is None.
+
+    Returns
+    -------
+    xp: 1-D array of positive integers
+        The simplified indices.
+    fp: 1-D array of floats, integers or datetime64s
+        The simplified values, same length as `xp`.
+    """
+    return _simplify(xp, fp, tolerance=tolerance)
+
+
+def wraps(func_int, func_float, takes_inputs=True):
     def func(xp, fp, *, x=None, f=None, **kwargs):
-        xp, fp, x, f, isscalar = check(xp, fp, x, f)
+        xp, fp, x, f, isscalar = check(xp, fp, x, f, takes_inputs=takes_inputs)
         if np.issubdtype(fp.dtype, np.integer) or np.issubdtype(
             fp.dtype, np.datetime64
         ):
@@ -71,19 +94,59 @@ def wraps(func_int, func_float):
                 out = func_int(
                     x.astype("u8"), xp.astype("u8"), fp.astype("i8"), **kwargs
                 ).astype(fp.dtype)
-            if f is not None:
+            elif f is not None:
                 out = func_int(
                     f.astype("i8"), xp.astype("u8"), fp.astype("i8"), **kwargs
                 ).astype(xp.dtype)
+            else:
+                tolerance = kwargs.pop("tolerance", None)
+                if tolerance is None:
+                    tolerance = np.asarray(0)
+                else:
+                    tolerance = np.asarray(tolerance)
+                    if np.issubdtype(tolerance.dtype, np.timedelta64):
+                        # Cast both tolerance and fp to the same timedelta64 unit
+                        unit = np.datetime_data(tolerance.dtype)[0]
+                        tolerance = tolerance.astype(f"m8[{unit}]")
+                    elif not tolerance.dtype == fp.dtype:
+                        raise ValueError(
+                            "tolerance must have the same dtype as fp or None"
+                        )
+                x, f = func_int(
+                    xp.astype("u8"),
+                    fp.astype("i8"),
+                    tolerance=tolerance.astype("i8"),
+                    **kwargs,
+                )
+                x = x.astype(xp.dtype)
+                f = f.astype(fp.dtype)
+                out = (x, f)
         elif np.issubdtype(fp.dtype, np.floating):
             if x is not None:
                 out = func_float(
                     x.astype("u8"), xp.astype("u8"), fp.astype("f8"), **kwargs
                 ).astype(fp.dtype)
-            if f is not None:
+            elif f is not None:
                 out = func_float(
                     f.astype("f8"), xp.astype("u8"), fp.astype("f8"), **kwargs
                 ).astype(xp.dtype)
+            else:
+                tolerance = kwargs.pop("tolerance", None)
+                if tolerance is None:
+                    tolerance = np.asarray(0.0)
+                else:
+                    tolerance = np.asarray(tolerance)
+                    if not np.issubdtype(tolerance.dtype, np.floating):
+                        raise ValueError("tolerance must be a float or None")
+                x, f = func_float(
+                    xp.astype("u8"),
+                    fp.astype("f8"),
+                    tolerance=tolerance.astype("f8"),
+                    **kwargs,
+                )
+                x = x.astype(xp.dtype)
+                f = f.astype(fp.dtype)
+                out = (x, f)
         else:
             raise ValueError("fp dtype must be either integer, floating or datetime")
         if isscalar:
@@ -94,7 +157,7 @@ def wraps(func_int, func_float):
     return func
 
 
-def check(xp, fp, x=None, f=None):
+def check(xp, fp, x=None, f=None, takes_inputs=True):
     xp = np.asarray(xp)
     fp = np.asarray(fp)
     if not (xp.ndim == 1 and fp.ndim == 1):
@@ -109,8 +172,13 @@ def check(xp, fp, x=None, f=None):
         raise ValueError("xp values must be positive")
     if not np.all(np.isfinite(fp)):
         raise ValueError("fp values must be finite")
-    if (x is None) == (f is None):
-        raise ValueError("either x or f must be provided")
+    if takes_inputs:
+        if (x is None) == (f is None):
+            raise ValueError("either x or f must be provided")
+    else:
+        isscalar = False
+        if not np.all(xp[1:] > xp[:-1]):
+            raise ValueError("xp must be strictly increasing")
     if x is not None:
         x = np.asarray(x).astype(xp.dtype)
         if x.ndim == 0:
@@ -146,3 +214,4 @@ def check(xp, fp, x=None, f=None):
 
 _forward = wraps(rust.forward_int, rust.forward_float)
 _inverse = wraps(rust.inverse_int, rust.inverse_float)
+_simplify = wraps(rust.simplify_int, rust.simplify_float, takes_inputs=False)

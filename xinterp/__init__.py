@@ -1,1 +1,1 @@
-from .core import forward, inverse
+from .core import forward, inverse, simplify

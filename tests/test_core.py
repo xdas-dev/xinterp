@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from xinterp import forward, inverse
+from xinterp import forward, inverse, simplify
 
 
 class TestForward:
@@ -316,3 +316,88 @@ class TestInverse:
         cases = [(1, 21), (2, 23), (3, 25), (4, 27), (5, 29), (6, 31), (7, 33), (8, 35)]
         for x, f in cases:
             assert inverse([float(f)], xp, fp, method="bfill")[0] == x
+
+
+class TestSimplify:
+    def test_raises_not_1D(self):
+        with pytest.raises(ValueError, match="xp and fp must be 1D"):
+            simplify([[0, 1]], [1, 2])
+        with pytest.raises(ValueError, match="xp and fp must be 1D"):
+            simplify([0, 1], [[1, 2]])
+
+    def test_raises_shape_mismatch(self):
+        with pytest.raises(ValueError, match="xp and fp must have the same length"):
+            simplify([0, 1, 2], [1, 2])
+
+    def test_raises_no_element(self):
+        with pytest.raises(
+            ValueError, match="xp and fp must have at least one elements"
+        ):
+            simplify([], [])
+
+    def test_raises_xp_not_integer(self):
+        with pytest.raises(ValueError, match="xp must have integer dtype"):
+            simplify([0.0, 1.0], [1, 2])
+
+    def test_raises_not_positive(self):
+        with pytest.raises(ValueError, match="xp values must be positive"):
+            simplify([-1, 1], [1, 2])
+
+    def test_raises_not_finite(self):
+        with pytest.raises(ValueError, match="fp values must be finite"):
+            simplify([0, 1], [np.nan, 2])
+        with pytest.raises(ValueError, match="fp values must be finite"):
+            simplify([0, 1], [np.inf, 2])
+
+    def test_raises_not_strictly_increasing(self):
+        with pytest.raises(ValueError, match="xp must be strictly increasing"):
+            simplify([1, 0], [2, 3])
+
+    def test_dtype_matching(self):
+        xp, fp = simplify([0, 1, 2], [3, 4, 5])
+        assert xp.dtype == np.dtype("i8")
+        assert fp.dtype == np.dtype("i8")
+        xp, fp = simplify([0, 1, 2], [3.0, 4.0, 5.0])
+        assert fp.dtype == np.dtype("f8")
+        xp, fp = simplify([0, 1, 2], np.array([3, 4, 5], dtype="M8[s]"))
+        assert fp.dtype == np.dtype("M8[s]")
+
+    def test_identity_for_line(self):
+        xp = [0, 1, 2, 3, 4]
+        fp = [0, 2, 4, 6, 8]
+        sxp, sfp = simplify(xp, fp)
+        assert (sxp == [0, 4]).all() or (sxp == np.array([0, 4])).all()
+        assert (sfp == [0, 8]).all() or (sfp == np.array([0, 8])).all()
+
+    def test_no_simplification_when_tolerance_zero(self):
+        xp = [0, 1, 2, 3, 4]
+        fp = [0, 1, 0, 1, 0]
+        sxp, sfp = simplify(xp, fp, tolerance=0)
+        assert (sxp == xp).all()
+        assert (sfp == fp).all()
+
+    def test_simplification_with_tolerance(self):
+        xp = [0, 1, 2, 3, 4]
+        fp = [0, 0.1, 0.2, 0.1, 0]
+        sxp, sfp = simplify(xp, fp, tolerance=0.15)
+        # Should keep endpoints and possibly the middle if deviation is above tolerance
+        assert sxp[0] == 0 and sxp[-1] == 4
+        assert sfp[0] == 0 and sfp[-1] == 0
+
+    def test_datetime64_support(self):
+        xp = np.arange(5)
+        fp = np.array([0, 1, 2, 1, 0], dtype="M8[s]")
+        sxp, sfp = simplify(xp, fp, tolerance=np.timedelta64(0, "s"))
+        assert sxp[0] == 0 and sxp[-1] == 4
+        assert sfp[0] == np.datetime64(0, "s")
+        assert sfp[-1] == np.datetime64(0, "s")
+
+    def test_singleton(self):
+        xp, fp = simplify([0], [42])
+        assert xp[0] == 0
+        assert fp[0] == 42
+
+    def test_two_points(self):
+        xp, fp = simplify([0, 1], [10, 20])
+        assert (xp == [0, 1]).all()
+        assert (fp == [10, 20]).all()

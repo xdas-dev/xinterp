@@ -47,8 +47,8 @@ pub enum InterpError {
 
 /// Structure for performing forward and inverse interpolation on piecewise linear functions.
 pub struct Interp<X, F> {
-    xp: Vec<X>,
-    fp: Vec<F>,
+    pub xp: Vec<X>,
+    pub fp: Vec<F>,
     forwardable: bool,
     inversable: bool,
 }
