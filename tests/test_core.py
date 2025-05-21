@@ -366,8 +366,8 @@ class TestSimplify:
         xp = [0, 1, 2, 3, 4]
         fp = [0, 2, 4, 6, 8]
         sxp, sfp = simplify(xp, fp)
-        assert (sxp == [0, 4]).all() or (sxp == np.array([0, 4])).all()
-        assert (sfp == [0, 8]).all() or (sfp == np.array([0, 8])).all()
+        assert (sxp == np.array([0, 4])).all()
+        assert (sfp == np.array([0, 8])).all()
 
     def test_no_simplification_when_tolerance_zero(self):
         xp = [0, 1, 2, 3, 4]
@@ -381,8 +381,8 @@ class TestSimplify:
         fp = [0, 0.1, 0.2, 0.1, 0]
         sxp, sfp = simplify(xp, fp, tolerance=0.15)
         # Should keep endpoints and possibly the middle if deviation is above tolerance
-        assert sxp[0] == 0 and sxp[-1] == 4
-        assert sfp[0] == 0 and sfp[-1] == 0
+        assert (sxp == np.array([0, 2, 4])).all()
+        assert (sfp == np.array([0, 0.2, 0])).all()
 
     def test_datetime64_support(self):
         xp = np.arange(5)
@@ -390,7 +390,9 @@ class TestSimplify:
         sxp, sfp = simplify(xp, fp, tolerance=np.timedelta64(0, "s"))
         assert sxp[0] == 0 and sxp[-1] == 4
         assert sfp[0] == np.datetime64(0, "s")
-        assert sfp[-1] == np.datetime64(0, "s")
+        assert sfp[1] == np.datetime64(2, "s")
+        assert sfp[2] == np.datetime64(0, "s")
+        assert len(sxp) == 3
 
     def test_singleton(self):
         xp, fp = simplify([0], [42])
