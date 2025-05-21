@@ -164,10 +164,12 @@ where
         stack.push_back((0, n - 1));
 
         while let Some((start, end)) = stack.pop_back() {
-            let interp = Interp::new(
-                vec![self.xp[start], self.xp[end]],
-                vec![self.fp[start], self.fp[end]],
-            );
+            let interp = Interp {
+                xp: vec![self.xp[start], self.xp[end]],
+                fp: vec![self.fp[start], self.fp[end]],
+                forwardable: true,
+                inversable: true,
+            };
 
             let mut max_dist = F::zero();
             let mut index = 0;
