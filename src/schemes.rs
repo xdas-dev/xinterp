@@ -89,6 +89,29 @@ impl Inverse<u64> for f64 {
     }
 }
 
+pub trait Distance<T> {
+    /// Returns the distance between two points.
+    fn distance(self, rhs: T) -> T;
+}
+impl Distance<u64> for u64 {
+    fn distance(self, rhs: u64) -> u64 {
+        if self > rhs {
+            self - rhs
+        } else {
+            rhs - self
+        }
+    }
+}
+impl Distance<i64> for u64 {
+    fn distance(self, rhs: i64) -> u64 {
+        if self > rhs.to_unsigned() {
+            self - rhs.to_unsigned()
+        } else {
+            rhs.to_unsigned() - self
+        }
+    }
+}
+
 /// Implements signed to unsinged translation. Used to apply schemes on unsigned integers where
 /// no overflow can occur.
 pub trait ToUnsigned<U> {

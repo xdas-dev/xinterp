@@ -32,6 +32,8 @@
 //! - `InterpError::NotStrictlyIncreasing`: Indicates that the input or output values are not
 //! strictly increasing, which is required for interpolation.
 
+use std::collections::VecDeque;
+
 use crate::divop::Method;
 use crate::schemes::{Forward, Inverse};
 
@@ -143,6 +145,54 @@ where
         } else {
             Err(InterpError::NotStrictlyIncreasing)
         }
+    }
+
+    pub fn simplify(&self, epsilon: F) -> Interp<X, F> {
+        let n = self.xp.len();
+        if n <= 2 {
+            return Interp::new(self.xp.clone(), self.fp.clone());
+        }
+
+        let mut keep = vec![false; n];
+        keep[0] = true;
+        keep[n - 1] = true;
+
+        let mut stack = VecDeque::new();
+        stack.push_back((0, n - 1));
+
+        while let Some((start, end)) = stack.pop_back() {
+            let interp = Interp::new(
+                vec![self.xp[start], self.xp[end]],
+                vec![self.fp[start], self.fp[end]],
+            );
+
+            let mut max_dist = F::zero();
+            let mut index = 0;
+
+            for i in start + 1..end {
+                let dist = (interp.forward(self.xp[i]).unwrap() - self.fp[i]).abs();
+                if dist > max_dist {
+                    max_dist = dist;
+                    index = i;
+                }
+            }
+
+            if max_dist > epsilon {
+                keep[index] = true;
+                stack.push_back((start, index));
+                stack.push_back((index, end));
+            }
+        }
+
+        let mut xp = Vec::new();
+        let mut fp = Vec::new();
+        for i in 0..n {
+            if keep[i] {
+                xp.push(self.xp[i]);
+                fp.push(self.fp[i]);
+            }
+        }
+        Interp::new(xp, fp)
     }
 }
 
