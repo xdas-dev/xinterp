@@ -1,14 +1,14 @@
-//! Forward and inverse integer interpolation on piecewise linear functions.
+//! Forward and inverse integer interpolation on an explicit series of points.
 //!
 //! This module provides functionality for performing forward and inverse interpolation
-//! on piecewise linear functions. Forward interpolation estimates the value of the function
-//! at a given index within the range of known data points, while inverse interpolation
-//! estimates the index corresponding to a given value of the function.
+//! on a piecewise linear function defined by explicit knots. Forward interpolation estimates
+//! the value of the function at a given index within the range of known data points, while
+//! inverse interpolation estimates the index corresponding to a given value of the function.
 //!
 //! # Examples
 //!
 //! ```
-//! use xinterp::piecewise::Points;
+//! use xinterp::points::Points;
 //! use xinterp::divop::Method;
 //!
 //! let xp = vec![0, 2, 4];
@@ -43,7 +43,7 @@ pub enum InterpError {
     NotStrictlyIncreasing,
 }
 
-/// Structure for performing forward and inverse interpolation on piecewise linear functions.
+/// Structure for performing forward and inverse interpolation on an explicit series of points.
 pub struct Points<'a, X, F> {
     xp: &'a [X],
     fp: &'a [F],

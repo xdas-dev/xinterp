@@ -12,7 +12,7 @@
 
 use crate::divop::{DivOp, Method};
 use crate::extended::F106;
-use crate::piecewise::InterpError;
+use crate::points::InterpError;
 use crate::wide::cmp_frac;
 use std::cmp::Ordering;
 
@@ -215,7 +215,7 @@ pub fn infer(x: &[u64], f: &[i64]) -> (i64, u64, i64) {
 /// Which way `tie_values` runs -- a distance axis may run backwards, so unlike [`Points`],
 /// [`StepSeries`] allows either direction as long as it is consistent across the whole series.
 ///
-/// [`Points`]: crate::piecewise::Points
+/// [`Points`]: crate::points::Points
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Direction {
     Increasing,
@@ -234,7 +234,7 @@ fn direction(tie_values: &[i64]) -> Option<Direction> {
 
 /// A constant-step tie series: `tie_indices`/`tie_values` are the segment boundaries (points),
 /// `num`/`den` the declared step of each segment, shared (length 1) or per-segment. The
-/// generalisation of [`Points`](crate::piecewise::Points) that reconstructs values by stepping
+/// generalisation of [`Points`](crate::points::Points) that reconstructs values by stepping
 /// from the nearest anchor at an exact rational rate rather than by two-point interpolation.
 pub struct StepSeries<'a> {
     tie_indices: &'a [u64],

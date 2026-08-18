@@ -1,13 +1,13 @@
 pub mod divop;
 pub mod extended;
-pub mod piecewise;
+pub mod points;
 pub mod schemes;
 pub mod simplify;
 pub mod step;
 pub mod wide;
 
 use crate::divop::Method;
-use crate::piecewise::{InterpError, Points};
+use crate::points::{InterpError, Points};
 use numpy::ndarray::Array1;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1, PyUntypedArrayMethods};
 use pyo3::exceptions::{PyIndexError, PyKeyError, PyValueError};
