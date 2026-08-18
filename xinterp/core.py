@@ -74,7 +74,7 @@ def inverse_points(f, xp, fp, method=None):
 def forward(x, xp, fp):
     """Deprecated alias for :func:`forward_points`.
 
-    .. deprecated:: 0.2.1
+    .. deprecated:: 0.2.0
         Use :func:`forward_points` instead. Scheduled for removal in 0.5.
     """
     warnings.warn(
@@ -88,7 +88,7 @@ def forward(x, xp, fp):
 def inverse(f, xp, fp, method=None):
     """Deprecated alias for :func:`inverse_points`.
 
-    .. deprecated:: 0.2.1
+    .. deprecated:: 0.2.0
         Use :func:`inverse_points` instead. Scheduled for removal in 0.5.
     """
     warnings.warn(
