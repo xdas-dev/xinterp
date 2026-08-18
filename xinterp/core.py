@@ -99,7 +99,7 @@ def inverse(f, xp, fp, method=None):
     return inverse_points(f, xp, fp, method)
 
 
-def wraps(func_int, func_float, func_uint):
+def wraps(func_int, func_uint, func_float):
     def func(xp, fp, *, x=None, f=None, **kwargs):
         xp, fp, x, f, isscalar = check(xp, fp, x, f)
         if np.issubdtype(fp.dtype, np.unsignedinteger):
@@ -203,8 +203,8 @@ def check(xp, fp, x=None, f=None):
     return xp, fp, x, f, isscalar
 
 
-_forward = wraps(rust.forward_int, rust.forward_float, rust.forward_uint)
-_inverse = wraps(rust.inverse_int, rust.inverse_float, rust.inverse_uint)
+_forward = wraps(rust.forward_int, rust.forward_uint, rust.forward_float)
+_inverse = wraps(rust.inverse_int, rust.inverse_uint, rust.inverse_float)
 
 
 def _check_points(x, f):
