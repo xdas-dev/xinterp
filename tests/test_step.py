@@ -48,6 +48,13 @@ class TestForwardStep:
         assert result[0] == np.datetime64(0, "us")
         assert result[1] == np.datetime64(30_000, "us")
 
+    def test_timedelta_tie_values(self):
+        tie_indices = np.array([0, 999])
+        tie_values = np.array([-15_000, 15_000], dtype="m8[us]")
+        result = forward_step([0, 999], tie_indices, tie_values, [30_000], [999])
+        assert result[0] == np.timedelta64(-15_000, "us")
+        assert result[1] == np.timedelta64(15_000, "us")
+
     def test_float_tie_values(self):
         tie_indices = [0, 10]
         tie_values = [0.0, 100.0]
@@ -186,6 +193,30 @@ class TestInverseStep:
         )
         assert list(result) == [0, 999]
 
+    def test_timedelta_tie_values(self):
+        tie_indices = np.array([0, 999])
+        tie_values = np.array([-15_000, 15_000], dtype="m8[us]")
+        result = inverse_step(
+            np.array([-15_000, 15_000], dtype="m8[us]"),
+            tie_indices,
+            tie_values,
+            [30_000],
+            [999],
+        )
+        assert list(result) == [0, 999]
+
+    def test_nearest_clamps_without_limit(self):
+        tie_indices = [0, 10]
+        tie_values = [0, 100]
+        assert (
+            inverse_step([-10_000], tie_indices, tie_values, [10], [1], "nearest")[0]
+            == 0
+        )
+        assert (
+            inverse_step([10_000], tie_indices, tie_values, [10], [1], "nearest")[0]
+            == 10
+        )
+
     def test_float_tie_values(self):
         tie_indices = [0, 10]
         tie_values = [0.0, 100.0]
@@ -218,6 +249,12 @@ class TestDeviationStep:
     def test_nonzero_residual(self):
         tie_indices = [0, 10, 20]
         tie_values = [0, 101, 199]
+        result = deviation_step(tie_indices, tie_values, [10], [1])
+        assert list(result) == [1, -2]
+
+    def test_timedelta_tie_values(self):
+        tie_indices = [0, 10, 20]
+        tie_values = np.array([0, 101, 199], dtype="m8[us]")
         result = deviation_step(tie_indices, tie_values, [10], [1])
         assert list(result) == [1, -2]
 

@@ -19,13 +19,14 @@ def forward_points(x, xp, fp):
         The indices at which to evaluate the interpolated values.
     xp : 1-D sequence of positive integers
         The indices of the data points, must be strictly increasing.
-    fp : 1-D sequence of floats, integers or datetime64s
+    fp : 1-D sequence of floats, integers, datetime64s or timedelta64s
         The values of the data points, same length as `xp`.
 
     Returns
     -------
-    1-D array or scalar of floats, integers or datetime64s.
-        The interpolated values, same shape as `x`.
+    1-D array or scalar of floats, integers, datetime64s or timedelta64s.
+        The interpolated values, same shape as `x`. Non-float results are rounded
+        to the nearest tick, ties to even.
 
     Raises
     ------
@@ -45,16 +46,18 @@ def inverse_points(f, xp, fp, method=None):
 
     Parameters
     ----------
-    f : 1-D sequence or scalar of floats, integers or datetime64s
+    f : 1-D sequence or scalar of floats, integers, datetime64s or timedelta64s
         The values at which to evaluate the interpolated indices.
     xp : 1-D sequence of positive integers
         The indices of the data points, same length as `fp`.
-    fp : 1-D sequence of floats, integers or datetime64s
+    fp : 1-D sequence of floats, integers, datetime64s or timedelta64s
         The values of the data points, must be strictly increasing.
     method : str or None, optional
         The method to use for inexact matches:
         - None (default): exact match, raises otherwise
-        - "nearest": nearest match
+        - "nearest": nearest match, ties to even. A value beyond either end of
+          `fp` clamps to that end's index, however far outside the range it
+          falls -- there is no distance limit.
         - "ffill": propagate previous index forward
         - "bfill": propagate next index backward
 
@@ -66,7 +69,9 @@ def inverse_points(f, xp, fp, method=None):
     Raises
     ------
     KeyError
-        If any value of `f` is outside the `fp` range.
+        If any value of `f` is outside the `fp` range and `method` does not
+        cover that side (`None` on either side; `ffill` beyond the start;
+        `bfill` beyond the end).
     """
     return _inverse(xp, fp, f=f, method=method)
 
@@ -240,7 +245,7 @@ def simplify_points(x, f, en, ed):
     ----------
     x : 1-D sequence of positive integers
         The tie indices, must be strictly increasing.
-    f : 1-D sequence of floats, integers or datetime64s
+    f : 1-D sequence of floats, integers, datetime64s or timedelta64s
         The tie values, same length as `x`.
     en, ed : numbers
         The tolerance, as an exact ratio `en / ed` (`ed` strictly positive). For
@@ -337,7 +342,7 @@ def infer_step(x, f):
     ----------
     x : 1-D sequence of positive integers
         The tie indices, strictly increasing, at least two.
-    f : 1-D sequence of integers or datetime64s
+    f : 1-D sequence of integers, datetime64s or timedelta64s
         The tie values, same length as `x`.
 
     Returns
@@ -387,7 +392,8 @@ def forward_step(x, tie_indices, tie_values, num, den):
     Each segment `i` (between `tie_indices[i]` and `tie_indices[i + 1]`) advances at
     the exact rate `num[i] / den[i]` (or the single shared rate, when `num`/`den` have
     length 1): `tie_values[i] + round(k * num[i] / den[i])` for `k` ticks past
-    `tie_indices[i]`. See :func:`forward_points` for the free-slope twin.
+    `tie_indices[i]`, `round` breaking ties to even. See :func:`forward_points` for
+    the free-slope twin.
 
     Parameters
     ----------
@@ -395,7 +401,7 @@ def forward_step(x, tie_indices, tie_values, num, den):
         The indices at which to evaluate the predicted values.
     tie_indices : 1-D sequence of positive integers
         The segment boundaries, strictly increasing.
-    tie_values : 1-D sequence of floats, integers or datetime64s
+    tie_values : 1-D sequence of floats, integers, datetime64s or timedelta64s
         The value at each boundary, same length as `tie_indices`.
     num : 1-D sequence of integers
         Step numerator, length 1 (shared) or `len(tie_indices) - 1`. Ignored for
@@ -406,7 +412,7 @@ def forward_step(x, tie_indices, tie_values, num, den):
 
     Returns
     -------
-    1-D array or scalar of floats, integers or datetime64s.
+    1-D array or scalar of floats, integers, datetime64s or timedelta64s.
         The predicted values, same shape as `x`.
 
     Raises
@@ -462,11 +468,11 @@ def inverse_step(f, tie_indices, tie_values, num, den, method=None):
 
     Parameters
     ----------
-    f : 1-D sequence or scalar of floats, integers or datetime64s
+    f : 1-D sequence or scalar of floats, integers, datetime64s or timedelta64s
         The values at which to evaluate the predicted indices.
     tie_indices : 1-D sequence of positive integers
         The segment boundaries, strictly increasing.
-    tie_values : 1-D sequence of floats, integers or datetime64s
+    tie_values : 1-D sequence of floats, integers, datetime64s or timedelta64s
         The value at each boundary, strictly increasing or strictly decreasing (a
         distance axis may run backwards), same length as `tie_indices`.
     num : 1-D sequence of integers
@@ -476,7 +482,8 @@ def inverse_step(f, tie_indices, tie_values, num, den, method=None):
     den : 1-D sequence of positive integers
         Step denominator, same length as `num`.
     method : str or None, optional
-        Same contract as :func:`inverse_points`.
+        Same contract as :func:`inverse_points`, including "nearest" clamping
+        without limit past either end.
 
     Returns
     -------
@@ -486,7 +493,8 @@ def inverse_step(f, tie_indices, tie_values, num, den, method=None):
     Raises
     ------
     KeyError
-        If any value of `f` is outside the `tie_values` range.
+        If any value of `f` is outside the `tie_values` range and `method` does
+        not cover that side; see :func:`inverse_points`.
     """
     tie_indices, tie_values = _check_points(tie_indices, tie_values)
     n_segments = max(len(tie_indices) - 1, 0)
@@ -537,7 +545,7 @@ def deviation_step(tie_indices, tie_values, num, den):
     ----------
     tie_indices : 1-D sequence of positive integers
         The segment boundaries, strictly increasing.
-    tie_values : 1-D sequence of integers or datetime64s
+    tie_values : 1-D sequence of integers, datetime64s or timedelta64s
         The value at each boundary, same length as `tie_indices`.
     num : 1-D sequence of integers
         Step numerator, length 1 (shared) or `len(tie_indices) - 1`.

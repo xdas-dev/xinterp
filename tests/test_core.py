@@ -72,6 +72,13 @@ class TestForward:
         assert forward([1], [0, 2], np.array([3, 5], "f4")).dtype == "f4"
         assert forward(np.array([1], "u2"), np.array([0, 2], "u2"), [3, 5])[0] == 4
 
+    def test_timedelta_values(self):
+        assert forward([1], [0, 2], np.array([3, 5], "m8[s]")) == np.timedelta64(4, "s")
+        assert forward([1], [0, 2], np.array([3, 5], "m8[s]")).dtype == "m8[s]"
+        assert forward([1], [0, 2], np.array([-3, 3], "m8[s]")) == np.timedelta64(
+            0, "s"
+        )
+
     def test_scalar_handling(self):
         assert forward([1], [0, 2], [3, 5]).ndim == 1
         assert forward(1, [0, 2], [3, 5]).ndim == 0
@@ -182,6 +189,11 @@ class TestInverse:
         with pytest.raises(KeyError, match="f out of bounds"):
             inverse([6], [1, 2], [3, 5], method="bfill")
 
+    def test_nearest_clamps_without_limit(self):
+        # "nearest" never raises, however far outside [3, 5] the value falls
+        assert inverse([-10_000], [1, 2], [3, 5], method="nearest")[0] == 1
+        assert inverse([10_000], [1, 2], [3, 5], method="nearest")[0] == 2
+
     def test_raises_not_found(self):
         assert inverse([5], [0, 2], [3, 7]) == 1
         with pytest.raises(KeyError, match="f not found"):
@@ -207,6 +219,10 @@ class TestInverse:
         assert inverse(np.array([4], "M8[s]"), [0, 2], np.array([3, 5], "M8[s]")) == 1
         assert inverse([4], np.array([0, 2], "u2"), [3, 5]) == 1
         assert inverse([4], np.array([0, 2], "u2"), [3, 5]).dtype == "u2"
+
+    def test_timedelta_values(self):
+        assert inverse(np.array([4], "m8[s]"), [0, 2], np.array([3, 5], "m8[s]")) == 1
+        assert inverse(np.array([-3], "m8[s]"), [0, 2], np.array([-3, 3], "m8[s]")) == 0
 
     def test_scalar_handling(self):
         assert inverse([4], [0, 2], [3, 5]).ndim == 1

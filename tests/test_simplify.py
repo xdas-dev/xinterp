@@ -57,6 +57,12 @@ class TestSimplifyPoints:
         result = simplify_points(x, f, 0, 1)
         assert list(result) == [True, True, True, True]
 
+    def test_timedelta_values(self):
+        x = np.array([0, 9, 10, 19], dtype="i8")
+        f = np.array([0, 9000, 10500, 19500], dtype="m8[us]")
+        result = simplify_points(x, f, 0, 1)
+        assert list(result) == [True, True, True, True]
+
     def test_rejects_mismatched_length(self):
         with pytest.raises(ValueError, match="same length"):
             simplify_points([0, 1], [0.0], 0.0, 1.0)
@@ -222,6 +228,13 @@ class TestInferStep:
     def test_datetime_values(self):
         x = np.array([0, 999, 1998])
         f = np.array([0, 30000, 60000], dtype="M8[us]")
+        num, den, worst = infer_step(x, f)
+        # 30000/999 reduces by gcd 3 to 10000/333
+        assert (num, den, worst) == (10000, 333, 0)
+
+    def test_timedelta_values(self):
+        x = np.array([0, 999, 1998])
+        f = np.array([0, 30000, 60000], dtype="m8[us]")
         num, den, worst = infer_step(x, f)
         # 30000/999 reduces by gcd 3 to 10000/333
         assert (num, den, worst) == (10000, 333, 0)

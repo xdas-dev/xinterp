@@ -4,13 +4,25 @@ build-backend = "maturin"
 
 [project]
 name = "xinterp"
+description = "Exact index-to-value interpolation, backed by a Rust extension"
+readme = "README.md"
 requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Alister Trabattoni", email = "alister.trabattoni@gmail.com" }]
+keywords = ["interpolation", "datetime64", "sampling"]
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
 ]
 dynamic = ["version"]
 dependencies = ["numpy"]
+
+[project.urls]
+Repository = "https://github.com/xdas-dev/xinterp"
+Issues = "https://github.com/xdas-dev/xinterp/issues"
 
 [dependency-groups]
 dev = [
