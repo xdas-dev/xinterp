@@ -16,6 +16,8 @@ dependencies = ["numpy"]
 dev = [
     "maturin>=1.4,<2.0",
     "pytest>=7",
+    "pytest-cov>=5",
+    "ruff>=0.6",
 ]
 
 [tool.uv]
@@ -31,3 +33,27 @@ cache-keys = [
 [tool.maturin]
 features = ["pyo3/extension-module"]
 module-name = "xinterp.rust"
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "C4",   # flake8-comprehensions
+    "NPY",  # numpy-specific rules
+    "RUF",  # ruff-specific rules
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov=xinterp --cov-report=term-missing --cov-fail-under=100"
+
+[tool.coverage.run]
+branch = true
+source = ["xinterp"]
+omit = ["xinterp/rust*"]

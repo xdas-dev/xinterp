@@ -65,18 +65,49 @@ class TestSimplifyPoints:
         with pytest.raises(ValueError, match="strictly increasing"):
             simplify_points([0, 2, 1], [0.0, 1.0, 2.0], 0.0, 1.0)
 
+    def test_rejects_not_1D(self):
+        with pytest.raises(ValueError, match="x and f must be 1D"):
+            simplify_points([[0, 1]], [[0.0, 1.0]], 0.0, 1.0)
+
+    def test_rejects_empty(self):
+        with pytest.raises(ValueError, match="at least one element"):
+            simplify_points(
+                np.array([], dtype="i8"), np.array([], dtype="f8"), 0.0, 1.0
+            )
+
+    def test_rejects_non_integer_x_dtype(self):
+        with pytest.raises(ValueError, match="x must have integer dtype"):
+            simplify_points([0.0, 1.0], [0.0, 1.0], 0.0, 1.0)
+
+    def test_rejects_negative_x(self):
+        with pytest.raises(ValueError, match="x values must be positive"):
+            simplify_points([-1, 2], [0.0, 1.0], 0.0, 1.0)
+
+    def test_rejects_unsupported_f_dtype(self):
+        with pytest.raises(
+            ValueError, match="f dtype must be either integer, floating or datetime"
+        ):
+            simplify_points([0, 1], np.array([1 + 2j, 3 + 4j]), 0.0, 1.0)
+
     def test_matches_reference_oracle_on_random_curves(self):
         rng = np.random.default_rng(0)
         for _ in range(200):
             size = int(rng.integers(3, 30))
             positions = np.array(
-                [0] + sorted(rng.choice(np.arange(1, 3000), size - 1, replace=False).tolist())
+                [
+                    0,
+                    *sorted(
+                        rng.choice(np.arange(1, 3000), size - 1, replace=False).tolist()
+                    ),
+                ]
             )
             rate = int(rng.integers(1, 10**5))
             values = positions * rate + rng.integers(-4, 5, size)
             values = np.maximum.accumulate(values) + np.arange(size)
             en, ed = int(rng.integers(0, 5)), 2
-            expected = _sleeve_loop_reference(positions.tolist(), values.tolist(), en, ed)
+            expected = _sleeve_loop_reference(
+                positions.tolist(), values.tolist(), en, ed
+            )
             result = simplify_points(positions, values.astype("i8"), en, ed)
             np.testing.assert_array_equal(result, expected)
 
@@ -87,7 +118,12 @@ class TestSimplifyPoints:
         for _ in range(50):
             size = int(rng.integers(3, 20))
             x = np.array(
-                [0] + sorted(rng.choice(np.arange(1, 500), size - 1, replace=False).tolist())
+                [
+                    0,
+                    *sorted(
+                        rng.choice(np.arange(1, 500), size - 1, replace=False).tolist()
+                    ),
+                ]
             )
             f = np.cumsum(rng.integers(-10, 100, size)).astype("i8")
             en, ed = 3, 2  # epsilon = 1.5
@@ -97,7 +133,9 @@ class TestSimplifyPoints:
 
             reconstructed = forward_points(x, xk, fk)
             deviation = np.abs(reconstructed.astype("i8") - f.astype("i8"))
-            assert np.all(2 * ed * deviation <= 2 * en + ed)  # |dev| <= en/ed rounded up
+            assert np.all(
+                2 * ed * deviation <= 2 * en + ed
+            )  # |dev| <= en/ed rounded up
 
 
 class TestSimplifyStep:
@@ -119,6 +157,28 @@ class TestSimplifyStep:
         with pytest.raises(ValueError, match="den values must be positive"):
             simplify_step([0, 100], [10, 10], [10], [0], 1)
 
+    def test_rejects_not_1D(self):
+        with pytest.raises(ValueError, match="tie_values and tie_lengths must be 1D"):
+            simplify_step([[0]], [10], [1], [1], 0)
+
+    def test_rejects_mismatched_length(self):
+        with pytest.raises(
+            ValueError, match="tie_values and tie_lengths must have the same length"
+        ):
+            simplify_step([0, 1], [10], [1], [1], 0)
+
+    def test_rejects_empty(self):
+        with pytest.raises(ValueError, match="at least one element"):
+            simplify_step([], [], [1], [1], 0)
+
+    def test_rejects_num_den_not_1D(self):
+        with pytest.raises(ValueError, match="num and den must be 1D"):
+            simplify_step([0], [10], [[1]], [1], 0)
+
+    def test_rejects_num_den_mismatched_length(self):
+        with pytest.raises(ValueError, match="num and den must have the same length"):
+            simplify_step([0], [10], [1, 2], [1], 0)
+
     def test_fused_values_stay_within_declared_tolerance_of_a_run(self):
         rng = np.random.default_rng(2)
         for _ in range(50):
@@ -131,9 +191,7 @@ class TestSimplifyStep:
                 jitter = int(rng.integers(-tol, tol + 1)) if tol > 0 else 0
                 values.append(values[-1] + round(length * rate_num / rate_den) + jitter)
             values = np.array(values, dtype="i8")
-            keep, fused = simplify_step(
-                values, lengths, [rate_num], [rate_den], tol
-            )
+            keep, fused = simplify_step(values, lengths, [rate_num], [rate_den], tol)
             assert keep[0]
             assert len(fused) == int(np.sum(keep))
 
@@ -144,7 +202,7 @@ class TestInferStep:
         assert (num, den, worst) == (10, 1, 0)
 
     def test_gcd_reduced(self):
-        num, den, worst = infer_step([0, 4], [0, 20])
+        num, den, _worst = infer_step([0, 4], [0, 20])
         assert (num, den) == (5, 1)
 
     def test_negative_rate(self):
@@ -154,6 +212,12 @@ class TestInferStep:
     def test_requires_at_least_two_points(self):
         with pytest.raises(ValueError, match="at least two"):
             infer_step([0], [0])
+
+    def test_rejects_unsupported_f_dtype(self):
+        with pytest.raises(
+            ValueError, match="f dtype must be either integer or datetime"
+        ):
+            infer_step([0, 10], [0.0, 10.0])
 
     def test_datetime_values(self):
         x = np.array([0, 999, 1998])

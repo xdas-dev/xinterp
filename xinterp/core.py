@@ -107,7 +107,7 @@ def wraps(func_int, func_uint, func_float):
                 out = func_uint(
                     x.astype("u8"), xp.astype("u8"), fp.astype("u8"), **kwargs
                 ).astype(fp.dtype)
-            elif f is not None:
+            else:
                 out = func_uint(
                     f.astype("u8"), xp.astype("u8"), fp.astype("u8"), **kwargs
                 ).astype(xp.dtype)
@@ -118,7 +118,7 @@ def wraps(func_int, func_uint, func_float):
                 out = func_int(
                     x.astype("u8"), xp.astype("u8"), fp.astype("i8"), **kwargs
                 ).astype(fp.dtype)
-            elif f is not None:
+            else:
                 out = func_int(
                     f.astype("i8"), xp.astype("u8"), fp.astype("i8"), **kwargs
                 ).astype(xp.dtype)
@@ -127,7 +127,7 @@ def wraps(func_int, func_uint, func_float):
                 out = func_float(
                     x.astype("u8"), xp.astype("u8"), fp.astype("f8"), **kwargs
                 ).astype(fp.dtype)
-            elif f is not None:
+            else:
                 out = func_float(
                     f.astype("f8"), xp.astype("u8"), fp.astype("f8"), **kwargs
                 ).astype(xp.dtype)
@@ -177,11 +177,12 @@ def check(xp, fp, x=None, f=None):
             raise ValueError("xp must be strictly increasing")
     if f is not None:
         f_orig = np.asarray(f)
-        if np.issubdtype(fp.dtype, np.unsignedinteger) and np.issubdtype(
-            f_orig.dtype, np.signedinteger
+        if (
+            np.issubdtype(fp.dtype, np.unsignedinteger)
+            and np.issubdtype(f_orig.dtype, np.signedinteger)
+            and not np.all(f_orig >= 0)
         ):
-            if not np.all(f_orig >= 0):
-                raise ValueError("f values must be positive")
+            raise ValueError("f values must be positive")
         f = f_orig.astype(fp.dtype)
         if np.issubdtype(f_orig.dtype, np.floating):
             lossless = np.array_equal(f_orig, f.astype(f_orig.dtype), equal_nan=True)
@@ -227,7 +228,8 @@ def _check_points(x, f):
 
 def simplify_points(x, f, en, ed):
     """
-    Drop tie points already described, to within `en / ed`, by their surviving neighbours.
+    Drop tie points already described, to within `en / ed`, by their surviving
+    neighbours.
 
     A one-pass greedy sleeve: from the current anchor it maintains the intersection of
     every dropped point's slope cone, and emits a knot exactly when a candidate leaves
@@ -324,7 +326,8 @@ def simplify_step(tie_values, tie_lengths, num, den, tol):
 
 def infer_step(x, f):
     """
-    The single step (`num`, `den`) best describing every consecutive segment of `(x, f)`.
+    The single step (`num`, `den`) best describing every consecutive segment of
+    `(x, f)`.
 
     The length-weighted Chebyshev centre of the per-segment rates, in exact integers,
     gcd-reduced (D2: an irreducible fraction is the canonical, comparable form). Returns
@@ -444,7 +447,9 @@ def forward_step(x, tie_indices, tie_values, num, den):
             num.astype("f8"),
         ).astype(tie_values.dtype)
     else:
-        raise ValueError("tie_values dtype must be either integer, floating or datetime")
+        raise ValueError(
+            "tie_values dtype must be either integer, floating or datetime"
+        )
     return out[0] if isscalar else out
 
 
@@ -514,7 +519,9 @@ def inverse_step(f, tie_indices, tie_values, num, den, method=None):
             method=method,
         )
     else:
-        raise ValueError("tie_values dtype must be either integer, floating or datetime")
+        raise ValueError(
+            "tie_values dtype must be either integer, floating or datetime"
+        )
     return out[0] if isscalar else out
 
 

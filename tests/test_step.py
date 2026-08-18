@@ -82,10 +82,48 @@ class TestForwardStep:
             expected = _reference_forward(tie0, length, num, den)
             if not (-(2**63) <= expected <= 2**63 - 1):
                 continue
-            result = forward_step(
-                [length], [0, length], [tie0, expected], [num], [den]
-            )
+            result = forward_step([length], [0, length], [tie0, expected], [num], [den])
             assert int(result[0]) == expected, (tie0, length, num, den)
+
+    def test_rejects_num_den_not_1D(self):
+        with pytest.raises(ValueError, match="num and den must be 1D"):
+            forward_step([5], [0, 10], [0, 100], [[10]], [1])
+
+    def test_rejects_num_den_mismatched_length(self):
+        with pytest.raises(ValueError, match="num and den must have the same length"):
+            forward_step([5], [0, 10], [0, 100], [10, 20], [1])
+
+    def test_rejects_non_positive_den(self):
+        with pytest.raises(ValueError, match="den values must be positive"):
+            forward_step([5], [0, 10], [0, 100], [10], [0])
+
+    def test_accepts_scalar_x(self):
+        result = forward_step(5, [0, 10], [0, 100], [10], [1])
+        assert result == 50
+
+    def test_rejects_x_not_1D_or_scalar(self):
+        with pytest.raises(ValueError, match="x must be 1D or scalar"):
+            forward_step([[5]], [0, 10], [0, 100], [10], [1])
+
+    def test_datetime_x(self):
+        x = np.array([3], dtype="M8[s]")
+        result = forward_step(x, [0, 10], [0, 100], [10], [1])
+        assert result[0] == 30
+
+    def test_rejects_non_integral_x(self):
+        with pytest.raises(ValueError, match="x values must be integral"):
+            forward_step([1.5], [0, 10], [0, 100], [10], [1])
+
+    def test_rejects_negative_x(self):
+        with pytest.raises(ValueError, match="x values must be positive"):
+            forward_step([-1], [0, 10], [0, 100], [10], [1])
+
+    def test_rejects_unsupported_tie_values_dtype(self):
+        with pytest.raises(
+            ValueError,
+            match="tie_values dtype must be either integer, floating or datetime",
+        ):
+            forward_step([5], [0, 10], np.array([1 + 2j, 3 + 4j]), [10], [1])
 
     def test_den_array_length_1_and_n_segments_agree(self):
         tie_indices = [0, 10, 20, 30]
@@ -125,15 +163,26 @@ class TestInverseStep:
         tie_values = [0, 3]
         with pytest.raises(KeyError):
             inverse_step([1], tie_indices, tie_values, [3], [2])
-        assert inverse_step([1], tie_indices, tie_values, [3], [2], method="ffill")[0] == 0
-        assert inverse_step([1], tie_indices, tie_values, [3], [2], method="bfill")[0] == 1
-        assert inverse_step([1], tie_indices, tie_values, [3], [2], method="nearest")[0] == 1
+        assert (
+            inverse_step([1], tie_indices, tie_values, [3], [2], method="ffill")[0] == 0
+        )
+        assert (
+            inverse_step([1], tie_indices, tie_values, [3], [2], method="bfill")[0] == 1
+        )
+        assert (
+            inverse_step([1], tie_indices, tie_values, [3], [2], method="nearest")[0]
+            == 1
+        )
 
     def test_datetime_tie_values(self):
         tie_indices = np.array([0, 999])
         tie_values = np.array([0, 30_000], dtype="M8[us]")
         result = inverse_step(
-            np.array([0, 30_000], dtype="M8[us]"), tie_indices, tie_values, [30_000], [999]
+            np.array([0, 30_000], dtype="M8[us]"),
+            tie_indices,
+            tie_values,
+            [30_000],
+            [999],
         )
         assert list(result) == [0, 999]
 
@@ -142,6 +191,21 @@ class TestInverseStep:
         tie_values = [0.0, 100.0]
         result = inverse_step([50.0], tie_indices, tie_values, [10.0], [1])
         assert result[0] == 5
+
+    def test_rejects_non_finite_f(self):
+        with pytest.raises(ValueError, match="f values must be finite"):
+            inverse_step([np.nan], [0, 10], [0.0, 100.0], [10.0], [1])
+
+    def test_float_rejects_den_not_one(self):
+        with pytest.raises(ValueError, match="no exact rate exists"):
+            inverse_step([50.0], [0, 10], [0.0, 100.0], [10.0], [2])
+
+    def test_rejects_unsupported_tie_values_dtype(self):
+        with pytest.raises(
+            ValueError,
+            match="tie_values dtype must be either integer, floating or datetime",
+        ):
+            inverse_step([1], [0, 10], np.array([1 + 2j, 3 + 4j]), [10], [1])
 
 
 class TestDeviationStep:
@@ -174,3 +238,9 @@ class TestDeviationStep:
             for i in range(len(tie_indices) - 1)
         ]
         np.testing.assert_array_equal(residual, expected)
+
+    def test_rejects_unsupported_tie_values_dtype(self):
+        with pytest.raises(
+            ValueError, match="tie_values dtype must be either integer or datetime"
+        ):
+            deviation_step([0, 10, 20], [0.0, 100.0, 200.0], [10], [1])

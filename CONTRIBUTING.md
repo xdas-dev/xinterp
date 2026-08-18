@@ -25,10 +25,18 @@ optimised — benchmarks taken through `uv run` are meaningful.
 
 ```sh
 uv run pytest              # Python suite (rebuilds the extension if needed)
+uv run ruff format         # Python formatting
+uv run ruff check          # Python linting
 cargo test                 # Rust unit tests and doctests
 cargo clippy --all-targets -- -D warnings
 cargo fmt
 ```
+
+`pytest` is configured (in `pyproject.toml`) to fail if coverage of `xinterp/`
+drops below 100%; `--cov-report=term-missing` prints exactly which lines are
+uncovered when it does. Genuinely unreachable branches (an invariant enforced
+by an earlier check) should be restructured to remove the branch rather than
+carved out with a coverage pragma.
 
 Two conveniences make this work without ceremony:
 
@@ -75,7 +83,7 @@ depends on, so a red test blocks publication to PyPI:
 | job | runs |
 | --- | --- |
 | `rust` | `uv sync --frozen`, then `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` |
-| `python` | `uv run --frozen pytest -q` on Python 3.11 and 3.14 |
+| `python` | `uv run --frozen ruff format --check`, `uv run --frozen ruff check`, `uv run --frozen pytest -q` (100% coverage required) on Python 3.11 and 3.14 |
 
 Both use `--frozen`, so a dependency change that is not reflected in `uv.lock`
 fails CI rather than silently resolving something else. Run `uv lock` and
@@ -87,6 +95,8 @@ on a tag.
 ## Conventions
 
 - Keep `cargo clippy --all-targets -- -D warnings` clean; CI gates on it.
+- Keep `ruff format`/`ruff check` clean and Python coverage at 100%; CI gates
+  on both.
 - Wide arithmetic is intentional: the integer path maps signed values onto
   unsigned ones (`schemes.rs`, `ToUnsigned`) and computes in `u128`, so that no
   `i64` value at any `u64` index can overflow. New kernels should follow that

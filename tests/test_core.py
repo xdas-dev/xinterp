@@ -173,12 +173,12 @@ class TestInverse:
             inverse([2], [1, 2], [3, 5])
         with pytest.raises(KeyError, match="f out of bounds"):
             inverse([6], [1, 2], [3, 5])
-        inverse([2], [1, 2], [3, 5], method="nearest") == 1
-        inverse([6], [1, 2], [3, 5], method="nearest") == 2
+        assert inverse([2], [1, 2], [3, 5], method="nearest")[0] == 1
+        assert inverse([6], [1, 2], [3, 5], method="nearest")[0] == 2
         with pytest.raises(KeyError, match="f out of bounds"):
             inverse([2], [1, 2], [3, 5], method="ffill")
-        inverse([6], [1, 2], [3, 5], method="ffill") == 2
-        inverse([2], [1, 2], [3, 5], method="bfill") == 1
+        assert inverse([6], [1, 2], [3, 5], method="ffill")[0] == 2
+        assert inverse([2], [1, 2], [3, 5], method="bfill")[0] == 1
         with pytest.raises(KeyError, match="f out of bounds"):
             inverse([6], [1, 2], [3, 5], method="bfill")
 
@@ -379,9 +379,20 @@ class TestBoundaryHardening:
         with pytest.raises(ValueError, match="f values must be positive"):
             inverse(-1, [0, 2], np.array([3, 5], dtype="u8"))
 
+    def test_rejects_unsupported_fp_dtype(self):
+        with pytest.raises(
+            ValueError, match="fp dtype must be either integer, floating or datetime"
+        ):
+            forward([1], [0, 2], np.array([1 + 2j, 3 + 4j]))
+
+    def test_rejects_neither_x_nor_f_provided(self):
+        with pytest.raises(ValueError, match="either x or f must be provided"):
+            forward(None, [0, 2], [0, 100])
+
 
 class TestDeprecatedPointsAliases:
-    """`forward`/`inverse` stay as deprecated aliases for `forward_points`/`inverse_points`."""
+    """`forward`/`inverse` stay as deprecated aliases for `forward_points`/
+    `inverse_points`."""
 
     def test_forward_warns_and_matches_forward_points(self):
         with pytest.deprecated_call(match="use forward_points instead"):
