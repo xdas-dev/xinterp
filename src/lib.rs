@@ -2,6 +2,9 @@ pub mod divop;
 pub mod extended;
 pub mod piecewise;
 pub mod schemes;
+pub mod simplify;
+pub mod step;
+pub mod wide;
 
 use crate::divop::Method;
 use crate::piecewise::{InterpError, Points};
@@ -214,5 +217,84 @@ mod rust {
             Ok(x)
         })?;
         Ok(x.into_pyarray(py))
+    }
+
+    #[pyfunction]
+    fn simplify_points_int<'py>(
+        py: Python<'py>,
+        x: PyReadonlyArray1<'py, u64>,
+        f: PyReadonlyArray1<'py, i64>,
+        en: i64,
+        ed: i64,
+    ) -> PyResult<Bound<'py, PyArray1<bool>>> {
+        let x = x.as_slice().expect("x must be contiguous");
+        let f = f.as_slice().expect("f must be contiguous");
+        let keep = py.detach(|| crate::simplify::simplify_points_int(x, f, en, ed));
+        Ok(Array1::from_vec(keep).into_pyarray(py))
+    }
+
+    #[pyfunction]
+    fn simplify_points_float<'py>(
+        py: Python<'py>,
+        x: PyReadonlyArray1<'py, u64>,
+        f: PyReadonlyArray1<'py, f64>,
+        en: f64,
+        ed: f64,
+    ) -> PyResult<Bound<'py, PyArray1<bool>>> {
+        let x = x.as_slice().expect("x must be contiguous");
+        let f = f.as_slice().expect("f must be contiguous");
+        let keep = py.detach(|| crate::simplify::simplify_points_float(x, f, en, ed));
+        Ok(Array1::from_vec(keep).into_pyarray(py))
+    }
+
+    type SimplifyStepResult<'py> = (Bound<'py, PyArray1<bool>>, Bound<'py, PyArray1<i64>>);
+
+    #[pyfunction]
+    fn simplify_step<'py>(
+        py: Python<'py>,
+        tie_values: PyReadonlyArray1<'py, i64>,
+        tie_lengths: PyReadonlyArray1<'py, u64>,
+        num: PyReadonlyArray1<'py, i64>,
+        den: PyReadonlyArray1<'py, u64>,
+        tol: i64,
+    ) -> PyResult<SimplifyStepResult<'py>> {
+        let tie_values = tie_values
+            .as_slice()
+            .expect("tie_values must be contiguous");
+        let tie_lengths = tie_lengths
+            .as_slice()
+            .expect("tie_lengths must be contiguous");
+        let num = num.as_slice().expect("num must be contiguous");
+        let den = den.as_slice().expect("den must be contiguous");
+        if !(num.len() == 1 || num.len() == tie_values.len()) || num.len() != den.len() {
+            return Err(PyValueError::new_err(
+                "num and den must have the same length, either 1 or len(tie_values)",
+            ));
+        }
+        let (keep, fused) =
+            py.detach(|| crate::simplify::simplify_step(tie_values, tie_lengths, num, den, tol));
+        Ok((
+            Array1::from_vec(keep).into_pyarray(py),
+            Array1::from_vec(fused).into_pyarray(py),
+        ))
+    }
+
+    #[pyfunction]
+    fn infer_step<'py>(
+        py: Python<'py>,
+        x: PyReadonlyArray1<'py, u64>,
+        f: PyReadonlyArray1<'py, i64>,
+    ) -> PyResult<(i64, u64, i64)> {
+        let x = x.as_slice().expect("x must be contiguous");
+        let f = f.as_slice().expect("f must be contiguous");
+        if x.len() != f.len() {
+            return Err(PyValueError::new_err("x and f must have the same length"));
+        }
+        if x.len() < 2 {
+            return Err(PyValueError::new_err(
+                "infer_step needs at least two tie points",
+            ));
+        }
+        Ok(py.detach(|| crate::step::infer(x, f)))
     }
 }

@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
 
-from xinterp import forward, inverse
+import xinterp
+from xinterp import forward_points as forward
+from xinterp import inverse_points as inverse
 
 
 class TestForward:
@@ -376,3 +378,17 @@ class TestBoundaryHardening:
     def test_negative_f_against_unsigned_fp_raises_rather_than_wraps(self):
         with pytest.raises(ValueError, match="f values must be positive"):
             inverse(-1, [0, 2], np.array([3, 5], dtype="u8"))
+
+
+class TestDeprecatedPointsAliases:
+    """`forward`/`inverse` stay as deprecated aliases for `forward_points`/`inverse_points`."""
+
+    def test_forward_warns_and_matches_forward_points(self):
+        with pytest.deprecated_call(match="use forward_points instead"):
+            result = xinterp.forward(1, [0, 2], [3, 5])
+        assert result == xinterp.forward_points(1, [0, 2], [3, 5])
+
+    def test_inverse_warns_and_matches_inverse_points(self):
+        with pytest.deprecated_call(match="use inverse_points instead"):
+            result = xinterp.inverse(4, [0, 2], [3, 5])
+        assert result == xinterp.inverse_points(4, [0, 2], [3, 5])

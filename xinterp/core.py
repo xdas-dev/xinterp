@@ -1,11 +1,17 @@
+import warnings
+
 import numpy as np
 
 from . import rust
 
 
-def forward(x, xp, fp):
+def forward_points(x, xp, fp):
     """
     One-dimensional linear interpolation from indices to values.
+
+    The knots are given explicitly, as points from which each piece implies its own
+    slope. See :func:`forward_step` for the constant-rate twin, where the knots are
+    generated at a fixed rate instead.
 
     Parameters
     ----------
@@ -29,9 +35,13 @@ def forward(x, xp, fp):
     return _forward(xp, fp, x=x)
 
 
-def inverse(f, xp, fp, method=None):
+def inverse_points(f, xp, fp, method=None):
     """
     One-dimensional linear interpolation from values to indices.
+
+    The knots are given explicitly, as points from which each piece implies its own
+    slope. See :func:`inverse_step` for the constant-rate twin, where the knots are
+    generated at a fixed rate instead.
 
     Parameters
     ----------
@@ -59,6 +69,34 @@ def inverse(f, xp, fp, method=None):
         If any value of `f` is outside the `fp` range.
     """
     return _inverse(xp, fp, f=f, method=method)
+
+
+def forward(x, xp, fp):
+    """Deprecated alias for :func:`forward_points`.
+
+    .. deprecated:: 0.2.1
+        Use :func:`forward_points` instead. Scheduled for removal in 0.5.
+    """
+    warnings.warn(
+        "forward is deprecated, use forward_points instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return forward_points(x, xp, fp)
+
+
+def inverse(f, xp, fp, method=None):
+    """Deprecated alias for :func:`inverse_points`.
+
+    .. deprecated:: 0.2.1
+        Use :func:`inverse_points` instead. Scheduled for removal in 0.5.
+    """
+    warnings.warn(
+        "inverse is deprecated, use inverse_points instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return inverse_points(f, xp, fp, method)
 
 
 def wraps(func_int, func_float, func_uint):
@@ -167,3 +205,149 @@ def check(xp, fp, x=None, f=None):
 
 _forward = wraps(rust.forward_int, rust.forward_float, rust.forward_uint)
 _inverse = wraps(rust.inverse_int, rust.inverse_float, rust.inverse_uint)
+
+
+def _check_points(x, f):
+    x = np.asarray(x)
+    f = np.asarray(f)
+    if not (x.ndim == 1 and f.ndim == 1):
+        raise ValueError("x and f must be 1D")
+    if not len(x) == len(f):
+        raise ValueError("x and f must have the same length")
+    if not len(x) > 0:
+        raise ValueError("x and f must have at least one element")
+    if not np.issubdtype(x.dtype, np.integer):
+        raise ValueError("x must have integer dtype")
+    if not np.all(x >= 0):
+        raise ValueError("x values must be positive")
+    if not np.all(x[1:] > x[:-1]):
+        raise ValueError("x must be strictly increasing")
+    return x, f
+
+
+def simplify_points(x, f, en, ed):
+    """
+    Drop tie points already described, to within `en / ed`, by their surviving neighbours.
+
+    A one-pass greedy sleeve: from the current anchor it maintains the intersection of
+    every dropped point's slope cone, and emits a knot exactly when a candidate leaves
+    it. Kept points are original points, never moved. See :func:`simplify_step` for the
+    constant-rate twin, where the slope is fixed rather than free.
+
+    Parameters
+    ----------
+    x : 1-D sequence of positive integers
+        The tie indices, must be strictly increasing.
+    f : 1-D sequence of floats, integers or datetime64s
+        The tie values, same length as `x`.
+    en, ed : numbers
+        The tolerance, as an exact ratio `en / ed` (`ed` strictly positive). For
+        integers and datetimes, `en`/`ed` are counted in ticks; this function has no
+        opinion on what the tolerance means, or on the half-tick slack a caller may
+        want to fold in.
+
+    Returns
+    -------
+    1-D boolean array
+        Which of `x`/`f` survive, same length as `x`.
+    """
+    x, f = _check_points(x, f)
+    if np.issubdtype(f.dtype, np.integer) or np.issubdtype(f.dtype, np.datetime64):
+        return rust.simplify_points_int(
+            x.astype("u8"), f.astype("i8"), int(en), int(ed)
+        )
+    elif np.issubdtype(f.dtype, np.floating):
+        return rust.simplify_points_float(
+            x.astype("u8"), f.astype("f8"), float(en), float(ed)
+        )
+    else:
+        raise ValueError("f dtype must be either integer, floating or datetime")
+
+
+def simplify_step(tie_values, tie_lengths, num, den, tol):
+    """
+    Fuse consecutive segments whose declared step agrees, within `tol`.
+
+    Segment `i` starts at `tie_values[i]` and spans `tie_lengths[i]` index ticks, at
+    rate `num[i] / den[i]` (or the single shared rate, when `num`/`den` have length 1).
+    One-pass greedy walk: fuses while the run's steps agree and the spread of its
+    junction offsets stays within `2 * tol`, then re-anchors the run's tie value to the
+    Chebyshev centre of those offsets -- so a surviving value may move by up to `tol`.
+
+    Parameters
+    ----------
+    tie_values : 1-D sequence of integers
+        Start value of each segment.
+    tie_lengths : 1-D sequence of positive integers
+        Number of samples in each segment, same length as `tie_values`.
+    num : 1-D sequence of integers
+        Step numerator, length 1 (shared) or `len(tie_values)`.
+    den : 1-D sequence of positive integers
+        Step denominator, same length as `num`.
+    tol : integer
+        The tolerance budget, in tie-value ticks.
+
+    Returns
+    -------
+    keep : 1-D boolean array
+        Which of `tie_values` start a surviving run, same length as `tie_values`.
+    fused : 1-D integer array
+        The re-anchored tie value of each surviving run, length `keep.sum()`.
+    """
+    tie_values = np.asarray(tie_values)
+    tie_lengths = np.asarray(tie_lengths)
+    num = np.atleast_1d(np.asarray(num))
+    den = np.atleast_1d(np.asarray(den))
+    if not (tie_values.ndim == 1 and tie_lengths.ndim == 1):
+        raise ValueError("tie_values and tie_lengths must be 1D")
+    if not len(tie_values) == len(tie_lengths):
+        raise ValueError("tie_values and tie_lengths must have the same length")
+    if not len(tie_values) > 0:
+        raise ValueError("tie_values and tie_lengths must have at least one element")
+    if not (num.ndim == 1 and den.ndim == 1):
+        raise ValueError("num and den must be 1D")
+    if not len(num) == len(den):
+        raise ValueError("num and den must have the same length")
+    if not (len(num) == 1 or len(num) == len(tie_values)):
+        raise ValueError("num and den must have length 1 or len(tie_values)")
+    if not np.all(den > 0):
+        raise ValueError("den values must be positive")
+    keep, fused = rust.simplify_step(
+        tie_values.astype("i8"),
+        tie_lengths.astype("u8"),
+        num.astype("i8"),
+        den.astype("u8"),
+        int(tol),
+    )
+    return keep, fused
+
+
+def infer_step(x, f):
+    """
+    The single step (`num`, `den`) best describing every consecutive segment of `(x, f)`.
+
+    The length-weighted Chebyshev centre of the per-segment rates, in exact integers,
+    gcd-reduced (D2: an irreducible fraction is the canonical, comparable form). Returns
+    the worst per-segment absolute deviation from it alongside.
+
+    Parameters
+    ----------
+    x : 1-D sequence of positive integers
+        The tie indices, strictly increasing, at least two.
+    f : 1-D sequence of integers or datetime64s
+        The tie values, same length as `x`.
+
+    Returns
+    -------
+    num : int
+    den : int
+    worst_deviation : int
+    """
+    x, f = _check_points(x, f)
+    if len(x) < 2:
+        raise ValueError("infer_step needs at least two tie points")
+    if not (
+        np.issubdtype(f.dtype, np.integer) or np.issubdtype(f.dtype, np.datetime64)
+    ):
+        raise ValueError("f dtype must be either integer or datetime")
+    return rust.infer_step(x.astype("u8"), f.astype("i8"))
