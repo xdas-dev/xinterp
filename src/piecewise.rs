@@ -8,13 +8,13 @@
 //! # Examples
 //!
 //! ```
-//! use xinterp::piecewise::Interp;
+//! use xinterp::piecewise::Points;
 //! use xinterp::divop::Method;
 //!
 //! let xp = vec![0, 2, 4];
 //! let fp = vec![0.0, 4.0, 16.0];
 //!
-//! let interp = Interp::new(xp, fp);
+//! let interp = Points::new(&xp, &fp);
 //!
 //! let result = interp.forward(3);
 //! assert_eq!(result, Ok(10.0));
@@ -44,33 +44,33 @@ pub enum InterpError {
 }
 
 /// Structure for performing forward and inverse interpolation on piecewise linear functions.
-pub struct Interp<X, F> {
-    xp: Vec<X>,
-    fp: Vec<F>,
+pub struct Points<'a, X, F> {
+    xp: &'a [X],
+    fp: &'a [F],
     forwardable: bool,
     inversable: bool,
 }
 
-impl<X, F> Interp<X, F>
+impl<'a, X, F> Points<'a, X, F>
 where
     X: Forward<F>,
     F: Inverse<X>,
 {
-    /// Constructs a new Interp instance with the given data points.
+    /// Constructs a new Points instance borrowing the given data points.
     ///
     /// # Arguments
     ///
-    /// * `xp` - Vector of indices.
-    /// * `fp` - Vector of corresponding values.
+    /// * `xp` - Slice of indices.
+    /// * `fp` - Slice of corresponding values.
     ///
     /// # Panics
     ///
     /// Panics if the lengths of `xp` and `fp` are not equal.
-    pub fn new(xp: Vec<X>, fp: Vec<F>) -> Interp<X, F> {
+    pub fn new(xp: &'a [X], fp: &'a [F]) -> Points<'a, X, F> {
         assert!(xp.len() == fp.len(), "xp and fp must have same length");
         let forwardable = xp.windows(2).all(|pair| pair[0] < pair[1]);
         let inversable = fp.windows(2).all(|pair| pair[0] < pair[1]);
-        Interp {
+        Points {
             xp,
             fp,
             forwardable,
@@ -154,13 +154,13 @@ mod tests {
     fn test_initialization() {
         let xp: Vec<u64> = vec![0, 10];
         let fp: Vec<i64> = vec![20, 25];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert!(interp.forwardable);
         assert!(interp.inversable);
 
         let xp: Vec<u64> = vec![0, 10];
         let fp: Vec<i64> = vec![-20, -25];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert!(interp.forwardable);
         assert!(!interp.inversable);
     }
@@ -169,7 +169,7 @@ mod tests {
     fn test_forward_unsigned() {
         let xp: Vec<u64> = vec![0, 10];
         let fp: Vec<u64> = vec![20, 25];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.forward(0), Ok(20));
         assert_eq!(interp.forward(1), Ok(20));
         assert_eq!(interp.forward(2), Ok(21));
@@ -181,7 +181,7 @@ mod tests {
     fn test_forward_signed() {
         let xp: Vec<u64> = vec![0, 10];
         let fp: Vec<i64> = vec![-20, -25];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.forward(0), Ok(-20));
         assert_eq!(interp.forward(1), Ok(-20));
         assert_eq!(interp.forward(2), Ok(-21));
@@ -193,7 +193,7 @@ mod tests {
     fn test_forward_float() {
         let xp: Vec<u64> = vec![0, 10];
         let fp: Vec<f64> = vec![20.0, 25.0];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.forward(0), Ok(20.0));
         assert_eq!(interp.forward(1), Ok(20.5));
         assert_eq!(interp.forward(2), Ok(21.0));
@@ -205,7 +205,7 @@ mod tests {
     fn test_inverse_exact_unsigned() {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<u64> = vec![20, 30];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(
             interp.inverse(19, Method::None),
             Err(InterpError::OutOfBounds)
@@ -228,7 +228,7 @@ mod tests {
     fn test_inverse_round_unsigned() {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<u64> = vec![20, 30];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.inverse(19, Method::Nearest), Ok(0));
         assert_eq!(interp.inverse(20, Method::Nearest), Ok(0));
         assert_eq!(interp.inverse(21, Method::Nearest), Ok(0));
@@ -245,7 +245,7 @@ mod tests {
     fn test_inverse_ffill_unsigned() {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<u64> = vec![20, 30];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(
             interp.inverse(19, Method::ForwardFill),
             Err(InterpError::OutOfBounds)
@@ -265,7 +265,7 @@ mod tests {
     fn test_inverse_bfill_unsigned() {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<u64> = vec![20, 30];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.inverse(19, Method::BackwardFill), Ok(0));
         assert_eq!(interp.inverse(20, Method::BackwardFill), Ok(0));
         assert_eq!(interp.inverse(21, Method::BackwardFill), Ok(1));
@@ -285,7 +285,7 @@ mod tests {
     fn test_inverse_exact_signed() {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<i64> = vec![-30, -20];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(
             interp.inverse(-31, Method::None),
             Err(InterpError::OutOfBounds)
@@ -317,7 +317,7 @@ mod tests {
     fn test_inverse_round_signed() {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<i64> = vec![-30, -20];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.inverse(-31, Method::Nearest), Ok(0));
         assert_eq!(interp.inverse(-30, Method::Nearest), Ok(0));
         assert_eq!(interp.inverse(-29, Method::Nearest), Ok(0));
@@ -334,7 +334,7 @@ mod tests {
     fn test_inverse_ffill_signed() {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<i64> = vec![-30, -20];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(
             interp.inverse(-31, Method::ForwardFill),
             Err(InterpError::OutOfBounds)
@@ -354,7 +354,7 @@ mod tests {
     fn test_inverse_bfill_signed() {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<i64> = vec![-30, -20];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.inverse(-31, Method::BackwardFill), Ok(0));
         assert_eq!(interp.inverse(-30, Method::BackwardFill), Ok(0));
         assert_eq!(interp.inverse(-29, Method::BackwardFill), Ok(1));
@@ -374,7 +374,7 @@ mod tests {
     fn test_inverse_round_float() {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<f64> = vec![20.0, 30.0];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.inverse(19.9, Method::Nearest), Ok(0));
         assert_eq!(interp.inverse(20.0, Method::Nearest), Ok(0));
         assert_eq!(interp.inverse(20.1, Method::Nearest), Ok(0));
@@ -395,7 +395,7 @@ mod tests {
     fn test_inverse_ffill_float() {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<f64> = vec![20.0, 30.0];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(
             interp.inverse(19.9, Method::ForwardFill),
             Err(InterpError::OutOfBounds)
@@ -419,7 +419,7 @@ mod tests {
     fn test_inverse_bfill_float() {
         let xp: Vec<u64> = vec![0, 5];
         let fp: Vec<f64> = vec![20.0, 30.0];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.inverse(19.9, Method::BackwardFill), Ok(0));
         assert_eq!(interp.inverse(20.0, Method::BackwardFill), Ok(0));
         assert_eq!(interp.inverse(20.1, Method::BackwardFill), Ok(1));
@@ -441,7 +441,9 @@ mod tests {
 
     #[test]
     fn test_forward_big_numbers() {
-        let interp = Interp::new(vec![0, u64::MAX], vec![i64::MIN, i64::MAX]);
+        let xp = vec![0, u64::MAX];
+        let fp = vec![i64::MIN, i64::MAX];
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.forward(0), Ok(i64::MIN));
         assert_eq!(interp.forward(u64::MAX), Ok(i64::MAX));
         assert_eq!(interp.forward(u64::MAX / 2 + 1), Ok(0));
@@ -449,7 +451,9 @@ mod tests {
 
     #[test]
     fn test_inverse_exact_big_numbers() {
-        let interp = Interp::new(vec![0, u64::MAX], vec![i64::MIN, i64::MAX]);
+        let xp = vec![0, u64::MAX];
+        let fp = vec![i64::MIN, i64::MAX];
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.inverse(i64::MIN, Method::None), Ok(0));
         assert_eq!(interp.inverse(i64::MAX, Method::None), Ok(u64::MAX));
         assert_eq!(interp.inverse(0, Method::None), Ok(u64::MAX / 2 + 1));
@@ -457,7 +461,9 @@ mod tests {
 
     #[test]
     fn test_inverse_round_big_numbers() {
-        let interp = Interp::new(vec![0, u64::MAX], vec![i64::MIN, i64::MAX]);
+        let xp = vec![0, u64::MAX];
+        let fp = vec![i64::MIN, i64::MAX];
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.inverse(i64::MIN, Method::Nearest), Ok(0));
         assert_eq!(interp.inverse(i64::MAX, Method::Nearest), Ok(u64::MAX));
         assert_eq!(interp.inverse(0, Method::Nearest), Ok(u64::MAX / 2 + 1));
@@ -465,7 +471,9 @@ mod tests {
 
     #[test]
     fn test_inverse_ffill_big_numbers() {
-        let interp = Interp::new(vec![0, u64::MAX], vec![i64::MIN, i64::MAX]);
+        let xp = vec![0, u64::MAX];
+        let fp = vec![i64::MIN, i64::MAX];
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.inverse(i64::MIN, Method::ForwardFill), Ok(0));
         assert_eq!(interp.inverse(i64::MAX, Method::ForwardFill), Ok(u64::MAX));
         assert_eq!(interp.inverse(0, Method::ForwardFill), Ok(u64::MAX / 2 + 1));
@@ -473,7 +481,9 @@ mod tests {
 
     #[test]
     fn test_inverse_bfill_big_numbers() {
-        let interp = Interp::new(vec![0, u64::MAX], vec![i64::MIN, i64::MAX]);
+        let xp = vec![0, u64::MAX];
+        let fp = vec![i64::MIN, i64::MAX];
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.inverse(i64::MIN, Method::BackwardFill), Ok(0));
         assert_eq!(interp.inverse(i64::MAX, Method::BackwardFill), Ok(u64::MAX));
         assert_eq!(
@@ -486,7 +496,7 @@ mod tests {
     fn test_use_case() {
         let xp: Vec<u64> = vec![0, 8];
         let fp: Vec<f64> = vec![100.0, 900.0];
-        let interp = Interp::new(xp, fp);
+        let interp = Points::new(&xp, &fp);
         assert_eq!(interp.inverse(175.0, Method::Nearest), Ok(1))
     }
 }

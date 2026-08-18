@@ -4,7 +4,7 @@ pub mod piecewise;
 pub mod schemes;
 
 use crate::divop::Method;
-use crate::piecewise::{Interp, InterpError};
+use crate::piecewise::{InterpError, Points};
 use numpy::ndarray::Array1;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
 use pyo3::exceptions::{PyIndexError, PyKeyError, PyValueError};
@@ -34,23 +34,26 @@ mod rust {
         xp: PyReadonlyArray1<'py, u64>,
         fp: PyReadonlyArray1<'py, i64>,
     ) -> PyResult<Bound<'py, PyArray1<i64>>> {
-        let x = x.as_array();
-        let xp = xp.as_array();
-        let fp = fp.as_array();
-        let interp = Interp::new(xp.to_vec(), fp.to_vec());
-        let mut f = Array1::zeros(x.len());
-        for (index, value) in x.iter().zip(f.iter_mut()) {
-            match interp.forward(*index) {
-                Ok(result) => *value = result,
-                Err(InterpError::NotStrictlyIncreasing) => {
-                    return Err(PyValueError::new_err("xp must be strictly increasing"))
+        let x = x.as_slice().expect("x must be contiguous");
+        let xp = xp.as_slice().expect("xp must be contiguous");
+        let fp = fp.as_slice().expect("fp must be contiguous");
+        let points = Points::new(xp, fp);
+        let f = py.detach(|| -> PyResult<Array1<i64>> {
+            let mut f = Array1::zeros(x.len());
+            for (index, value) in x.iter().zip(f.iter_mut()) {
+                match points.forward(*index) {
+                    Ok(result) => *value = result,
+                    Err(InterpError::NotStrictlyIncreasing) => {
+                        return Err(PyValueError::new_err("xp must be strictly increasing"))
+                    }
+                    Err(InterpError::OutOfBounds) => {
+                        return Err(PyIndexError::new_err("x out of bounds"))
+                    }
+                    Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
                 }
-                Err(InterpError::OutOfBounds) => {
-                    return Err(PyIndexError::new_err("x out of bounds"))
-                }
-                Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
             }
-        }
+            Ok(f)
+        })?;
         Ok(f.into_pyarray(py))
     }
 
@@ -61,23 +64,26 @@ mod rust {
         xp: PyReadonlyArray1<'py, u64>,
         fp: PyReadonlyArray1<'py, u64>,
     ) -> PyResult<Bound<'py, PyArray1<u64>>> {
-        let x = x.as_array();
-        let xp = xp.as_array();
-        let fp = fp.as_array();
-        let interp = Interp::new(xp.to_vec(), fp.to_vec());
-        let mut f = Array1::zeros(x.len());
-        for (index, value) in x.iter().zip(f.iter_mut()) {
-            match interp.forward(*index) {
-                Ok(result) => *value = result,
-                Err(InterpError::NotStrictlyIncreasing) => {
-                    return Err(PyValueError::new_err("xp must be strictly increasing"))
+        let x = x.as_slice().expect("x must be contiguous");
+        let xp = xp.as_slice().expect("xp must be contiguous");
+        let fp = fp.as_slice().expect("fp must be contiguous");
+        let points = Points::new(xp, fp);
+        let f = py.detach(|| -> PyResult<Array1<u64>> {
+            let mut f = Array1::zeros(x.len());
+            for (index, value) in x.iter().zip(f.iter_mut()) {
+                match points.forward(*index) {
+                    Ok(result) => *value = result,
+                    Err(InterpError::NotStrictlyIncreasing) => {
+                        return Err(PyValueError::new_err("xp must be strictly increasing"))
+                    }
+                    Err(InterpError::OutOfBounds) => {
+                        return Err(PyIndexError::new_err("x out of bounds"))
+                    }
+                    Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
                 }
-                Err(InterpError::OutOfBounds) => {
-                    return Err(PyIndexError::new_err("x out of bounds"))
-                }
-                Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
             }
-        }
+            Ok(f)
+        })?;
         Ok(f.into_pyarray(py))
     }
 
@@ -88,23 +94,26 @@ mod rust {
         xp: PyReadonlyArray1<'py, u64>,
         fp: PyReadonlyArray1<'py, f64>,
     ) -> PyResult<Bound<'py, PyArray1<f64>>> {
-        let x = x.as_array();
-        let xp = xp.as_array().to_vec();
-        let fp = fp.as_array().to_vec();
-        let interp = Interp::new(xp, fp);
-        let mut f = Array1::zeros(x.len());
-        for (index, value) in x.iter().zip(f.iter_mut()) {
-            match interp.forward(*index) {
-                Ok(result) => *value = result,
-                Err(InterpError::NotStrictlyIncreasing) => {
-                    return Err(PyValueError::new_err("xp must be strictly increasing"))
+        let x = x.as_slice().expect("x must be contiguous");
+        let xp = xp.as_slice().expect("xp must be contiguous");
+        let fp = fp.as_slice().expect("fp must be contiguous");
+        let points = Points::new(xp, fp);
+        let f = py.detach(|| -> PyResult<Array1<f64>> {
+            let mut f = Array1::zeros(x.len());
+            for (index, value) in x.iter().zip(f.iter_mut()) {
+                match points.forward(*index) {
+                    Ok(result) => *value = result,
+                    Err(InterpError::NotStrictlyIncreasing) => {
+                        return Err(PyValueError::new_err("xp must be strictly increasing"))
+                    }
+                    Err(InterpError::OutOfBounds) => {
+                        return Err(PyIndexError::new_err("x out of bounds"))
+                    }
+                    Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
                 }
-                Err(InterpError::OutOfBounds) => {
-                    return Err(PyIndexError::new_err("x out of bounds"))
-                }
-                Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
             }
-        }
+            Ok(f)
+        })?;
         Ok(f.into_pyarray(py))
     }
 
@@ -117,24 +126,27 @@ mod rust {
         fp: PyReadonlyArray1<'py, i64>,
         method: Option<&str>,
     ) -> PyResult<Bound<'py, PyArray1<u64>>> {
-        let f = f.as_array();
-        let xp = xp.as_array();
-        let fp = fp.as_array();
+        let f = f.as_slice().expect("f must be contiguous");
+        let xp = xp.as_slice().expect("xp must be contiguous");
+        let fp = fp.as_slice().expect("fp must be contiguous");
         let method = parse_method(method)?;
-        let interp = Interp::new(xp.to_vec(), fp.to_vec());
-        let mut x = Array1::zeros(f.len());
-        for (value, index) in f.iter().zip(x.iter_mut()) {
-            match interp.inverse(*value, method) {
-                Ok(result) => *index = result,
-                Err(InterpError::NotStrictlyIncreasing) => {
-                    return Err(PyValueError::new_err("fp must be strictly increasing"))
+        let points = Points::new(xp, fp);
+        let x = py.detach(|| -> PyResult<Array1<u64>> {
+            let mut x = Array1::zeros(f.len());
+            for (value, index) in f.iter().zip(x.iter_mut()) {
+                match points.inverse(*value, method) {
+                    Ok(result) => *index = result,
+                    Err(InterpError::NotStrictlyIncreasing) => {
+                        return Err(PyValueError::new_err("fp must be strictly increasing"))
+                    }
+                    Err(InterpError::OutOfBounds) => {
+                        return Err(PyKeyError::new_err("f out of bounds"))
+                    }
+                    Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
                 }
-                Err(InterpError::OutOfBounds) => {
-                    return Err(PyKeyError::new_err("f out of bounds"))
-                }
-                Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
-        }
+            Ok(x)
+        })?;
         Ok(x.into_pyarray(py))
     }
 
@@ -147,24 +159,27 @@ mod rust {
         fp: PyReadonlyArray1<'py, f64>,
         method: Option<&str>,
     ) -> PyResult<Bound<'py, PyArray1<u64>>> {
-        let f = f.as_array();
-        let xp = xp.as_array().to_vec();
-        let fp = fp.as_array().to_vec();
+        let f = f.as_slice().expect("f must be contiguous");
+        let xp = xp.as_slice().expect("xp must be contiguous");
+        let fp = fp.as_slice().expect("fp must be contiguous");
         let method = parse_method(method)?;
-        let interp = Interp::new(xp, fp);
-        let mut x = Array1::zeros(f.len());
-        for (value, index) in f.iter().zip(x.iter_mut()) {
-            match interp.inverse(*value, method) {
-                Ok(result) => *index = result,
-                Err(InterpError::NotStrictlyIncreasing) => {
-                    return Err(PyValueError::new_err("fp must be strictly increasing"))
+        let points = Points::new(xp, fp);
+        let x = py.detach(|| -> PyResult<Array1<u64>> {
+            let mut x = Array1::zeros(f.len());
+            for (value, index) in f.iter().zip(x.iter_mut()) {
+                match points.inverse(*value, method) {
+                    Ok(result) => *index = result,
+                    Err(InterpError::NotStrictlyIncreasing) => {
+                        return Err(PyValueError::new_err("fp must be strictly increasing"))
+                    }
+                    Err(InterpError::OutOfBounds) => {
+                        return Err(PyKeyError::new_err("f out of bounds"))
+                    }
+                    Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
                 }
-                Err(InterpError::OutOfBounds) => {
-                    return Err(PyKeyError::new_err("f out of bounds"))
-                }
-                Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
-        }
+            Ok(x)
+        })?;
         Ok(x.into_pyarray(py))
     }
 
@@ -177,24 +192,27 @@ mod rust {
         fp: PyReadonlyArray1<'py, u64>,
         method: Option<&str>,
     ) -> PyResult<Bound<'py, PyArray1<u64>>> {
-        let f = f.as_array();
-        let xp = xp.as_array();
-        let fp = fp.as_array();
+        let f = f.as_slice().expect("f must be contiguous");
+        let xp = xp.as_slice().expect("xp must be contiguous");
+        let fp = fp.as_slice().expect("fp must be contiguous");
         let method = parse_method(method)?;
-        let interp = Interp::new(xp.to_vec(), fp.to_vec());
-        let mut x = Array1::zeros(f.len());
-        for (value, index) in f.iter().zip(x.iter_mut()) {
-            match interp.inverse(*value, method) {
-                Ok(result) => *index = result,
-                Err(InterpError::NotStrictlyIncreasing) => {
-                    return Err(PyValueError::new_err("fp must be strictly increasing"))
+        let points = Points::new(xp, fp);
+        let x = py.detach(|| -> PyResult<Array1<u64>> {
+            let mut x = Array1::zeros(f.len());
+            for (value, index) in f.iter().zip(x.iter_mut()) {
+                match points.inverse(*value, method) {
+                    Ok(result) => *index = result,
+                    Err(InterpError::NotStrictlyIncreasing) => {
+                        return Err(PyValueError::new_err("fp must be strictly increasing"))
+                    }
+                    Err(InterpError::OutOfBounds) => {
+                        return Err(PyKeyError::new_err("f out of bounds"))
+                    }
+                    Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
                 }
-                Err(InterpError::OutOfBounds) => {
-                    return Err(PyKeyError::new_err("f out of bounds"))
-                }
-                Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
             }
-        }
+            Ok(x)
+        })?;
         Ok(x.into_pyarray(py))
     }
 }

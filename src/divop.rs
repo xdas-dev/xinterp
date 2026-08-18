@@ -60,36 +60,6 @@ impl DivOp for u128 {
     }
 }
 
-impl DivOp for i128 {
-    fn div(self, rhs: i128, method: Method) -> Option<i128> {
-        let div = self.div_euclid(rhs);
-        let rem = self.rem_euclid(rhs);
-        match method {
-            Method::None => {
-                if rem == 0 {
-                    Some(div)
-                } else {
-                    None
-                }
-            }
-            Method::Nearest => {
-                let sgn = self.signum() * rhs.signum();
-                self.unsigned_abs()
-                    .div(rhs.unsigned_abs(), Method::Nearest)
-                    .map(|div| sgn * div as i128)
-            }
-            Method::ForwardFill => Some(div),
-            Method::BackwardFill => {
-                if rem == 0 {
-                    Some(div)
-                } else {
-                    Some(div + 1)
-                }
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,11 +72,6 @@ mod tests {
         assert_eq!(3u128.div(2, Method::None), None);
         assert_eq!(1u128.div(3, Method::None), None);
         assert_eq!(2u128.div(3, Method::None), None);
-        assert_eq!((-1i128).div(2, Method::None), None);
-        assert_eq!((-2i128).div(2, Method::None), Some(-1));
-        assert_eq!((-3i128).div(2, Method::None), None);
-        assert_eq!((-1i128).div(3, Method::None), None);
-        assert_eq!((-2i128).div(3, Method::None), None);
     }
 
     #[test]
@@ -117,11 +82,6 @@ mod tests {
         assert_eq!(3u128.div(2, Method::Nearest), Some(2));
         assert_eq!(1u128.div(3, Method::Nearest), Some(0));
         assert_eq!(2u128.div(3, Method::Nearest), Some(1));
-        assert_eq!((-1i128).div(2, Method::Nearest), Some(0));
-        assert_eq!((-2i128).div(2, Method::Nearest), Some(-1));
-        assert_eq!((-3i128).div(2, Method::Nearest), Some(-2));
-        assert_eq!((-1i128).div(3, Method::Nearest), Some(0));
-        assert_eq!((-2i128).div(3, Method::Nearest), Some(-1));
     }
 
     #[test]
@@ -132,11 +92,6 @@ mod tests {
         assert_eq!(3u128.div(2, Method::ForwardFill), Some(1));
         assert_eq!(1u128.div(3, Method::ForwardFill), Some(0));
         assert_eq!(2u128.div(3, Method::ForwardFill), Some(0));
-        assert_eq!((-1i128).div(2, Method::ForwardFill), Some(-1));
-        assert_eq!((-2i128).div(2, Method::ForwardFill), Some(-1));
-        assert_eq!((-3i128).div(2, Method::ForwardFill), Some(-2));
-        assert_eq!((-1i128).div(3, Method::ForwardFill), Some(-1));
-        assert_eq!((-2i128).div(3, Method::ForwardFill), Some(-1));
     }
 
     #[test]
@@ -147,10 +102,5 @@ mod tests {
         assert_eq!(3u128.div(2, Method::BackwardFill), Some(2));
         assert_eq!(1u128.div(3, Method::BackwardFill), Some(1));
         assert_eq!(2u128.div(3, Method::BackwardFill), Some(1));
-        assert_eq!((-1i128).div(2, Method::BackwardFill), Some(0));
-        assert_eq!((-2i128).div(2, Method::BackwardFill), Some(-1));
-        assert_eq!((-3i128).div(2, Method::BackwardFill), Some(-1));
-        assert_eq!((-1i128).div(3, Method::BackwardFill), Some(0));
-        assert_eq!((-2i128).div(3, Method::BackwardFill), Some(0));
     }
 }
