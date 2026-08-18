@@ -351,3 +351,208 @@ def infer_step(x, f):
     ):
         raise ValueError("f dtype must be either integer or datetime")
     return rust.infer_step(x.astype("u8"), f.astype("i8"))
+
+
+def _check_rate(num, den, n_segments):
+    num = np.atleast_1d(np.asarray(num))
+    den = np.atleast_1d(np.asarray(den))
+    if not (num.ndim == 1 and den.ndim == 1):
+        raise ValueError("num and den must be 1D")
+    if not len(num) == len(den):
+        raise ValueError("num and den must have the same length")
+    if not (len(num) == 1 or len(num) == n_segments):
+        raise ValueError("num and den must have length 1 or len(tie_indices) - 1")
+    if not np.all(den > 0):
+        raise ValueError("den values must be positive")
+    return num, den
+
+
+def _check_scalar_or_1d(a, name):
+    a = np.asarray(a)
+    if a.ndim == 0:
+        return a.reshape(1), True
+    elif a.ndim == 1:
+        return a, False
+    else:
+        raise ValueError(f"{name} must be 1D or scalar")
+
+
+def forward_step(x, tie_indices, tie_values, num, den):
+    """
+    Predicts values at `x` by stepping from the nearest tie point at a constant rate.
+
+    Each segment `i` (between `tie_indices[i]` and `tie_indices[i + 1]`) advances at
+    the exact rate `num[i] / den[i]` (or the single shared rate, when `num`/`den` have
+    length 1): `tie_values[i] + round(k * num[i] / den[i])` for `k` ticks past
+    `tie_indices[i]`. See :func:`forward_points` for the free-slope twin.
+
+    Parameters
+    ----------
+    x : 1-D sequence or scalar of positive integers
+        The indices at which to evaluate the predicted values.
+    tie_indices : 1-D sequence of positive integers
+        The segment boundaries, strictly increasing.
+    tie_values : 1-D sequence of floats, integers or datetime64s
+        The value at each boundary, same length as `tie_indices`.
+    num : 1-D sequence of integers
+        Step numerator, length 1 (shared) or `len(tie_indices) - 1`. Ignored for
+        floating `tie_values`, where it is instead the exact rate itself (`den` must
+        then be 1 everywhere: no exact rate exists on the float side).
+    den : 1-D sequence of positive integers
+        Step denominator, same length as `num`.
+
+    Returns
+    -------
+    1-D array or scalar of floats, integers or datetime64s.
+        The predicted values, same shape as `x`.
+
+    Raises
+    ------
+    IndexError
+        If any value of `x` is outside the `tie_indices` range.
+    """
+    tie_indices, tie_values = _check_points(tie_indices, tie_values)
+    n_segments = max(len(tie_indices) - 1, 0)
+    num, den = _check_rate(num, den, n_segments)
+    x = np.asarray(x)
+    if np.issubdtype(x.dtype, np.datetime64):
+        x = x.astype("i8")
+    x, isscalar = _check_scalar_or_1d(x, "x")
+    if np.issubdtype(x.dtype, np.floating) and not np.all(x == np.floor(x)):
+        raise ValueError("x values must be integral")
+    if not np.all(x >= 0):
+        raise ValueError("x values must be positive")
+    if np.issubdtype(tie_values.dtype, np.integer) or np.issubdtype(
+        tie_values.dtype, np.datetime64
+    ):
+        out = rust.forward_step_int(
+            x.astype("u8"),
+            tie_indices.astype("u8"),
+            tie_values.astype("i8"),
+            num.astype("i8"),
+            den.astype("u8"),
+        ).astype(tie_values.dtype)
+    elif np.issubdtype(tie_values.dtype, np.floating):
+        if not np.all(den == 1):
+            raise ValueError(
+                "den must be 1 for floating tie_values: no exact rate exists"
+            )
+        out = rust.forward_step_float(
+            x.astype("u8"),
+            tie_indices.astype("u8"),
+            tie_values.astype("f8"),
+            num.astype("f8"),
+        ).astype(tie_values.dtype)
+    else:
+        raise ValueError("tie_values dtype must be either integer, floating or datetime")
+    return out[0] if isscalar else out
+
+
+def inverse_step(f, tie_indices, tie_values, num, den, method=None):
+    """
+    Finds the indices whose predicted value (see :func:`forward_step`) is `f`.
+
+    See :func:`inverse_points` for the free-slope twin, and for the meaning of
+    `method`.
+
+    Parameters
+    ----------
+    f : 1-D sequence or scalar of floats, integers or datetime64s
+        The values at which to evaluate the predicted indices.
+    tie_indices : 1-D sequence of positive integers
+        The segment boundaries, strictly increasing.
+    tie_values : 1-D sequence of floats, integers or datetime64s
+        The value at each boundary, strictly increasing or strictly decreasing (a
+        distance axis may run backwards), same length as `tie_indices`.
+    num : 1-D sequence of integers
+        Step numerator, length 1 (shared) or `len(tie_indices) - 1`. Ignored for
+        floating `tie_values`, where it is instead the exact rate itself (`den` must
+        then be 1 everywhere).
+    den : 1-D sequence of positive integers
+        Step denominator, same length as `num`.
+    method : str or None, optional
+        Same contract as :func:`inverse_points`.
+
+    Returns
+    -------
+    1-D array or scalar of positive integers.
+        The predicted indices, same shape as `f`.
+
+    Raises
+    ------
+    KeyError
+        If any value of `f` is outside the `tie_values` range.
+    """
+    tie_indices, tie_values = _check_points(tie_indices, tie_values)
+    n_segments = max(len(tie_indices) - 1, 0)
+    num, den = _check_rate(num, den, n_segments)
+    f = np.asarray(f).astype(tie_values.dtype)
+    f, isscalar = _check_scalar_or_1d(f, "f")
+    if not np.all(np.isfinite(f)):
+        raise ValueError("f values must be finite")
+    if np.issubdtype(tie_values.dtype, np.integer) or np.issubdtype(
+        tie_values.dtype, np.datetime64
+    ):
+        out = rust.inverse_step_int(
+            f.astype("i8"),
+            tie_indices.astype("u8"),
+            tie_values.astype("i8"),
+            num.astype("i8"),
+            den.astype("u8"),
+            method=method,
+        )
+    elif np.issubdtype(tie_values.dtype, np.floating):
+        if not np.all(den == 1):
+            raise ValueError(
+                "den must be 1 for floating tie_values: no exact rate exists"
+            )
+        out = rust.inverse_step_float(
+            f.astype("f8"),
+            tie_indices.astype("u8"),
+            tie_values.astype("f8"),
+            num.astype("f8"),
+            method=method,
+        )
+    else:
+        raise ValueError("tie_values dtype must be either integer, floating or datetime")
+    return out[0] if isscalar else out
+
+
+def deviation_step(tie_indices, tie_values, num, den):
+    """
+    The per-segment residual between each tie value and what the declared step predicts.
+
+    `deviation_step(...)[i] == tie_values[i + 1] - forward_step(tie_indices[i + 1],
+    tie_indices, tie_values, num, den)`, computed directly rather than through a lookup.
+    Zero means the segment fits its declared rate exactly.
+
+    Parameters
+    ----------
+    tie_indices : 1-D sequence of positive integers
+        The segment boundaries, strictly increasing.
+    tie_values : 1-D sequence of integers or datetime64s
+        The value at each boundary, same length as `tie_indices`.
+    num : 1-D sequence of integers
+        Step numerator, length 1 (shared) or `len(tie_indices) - 1`.
+    den : 1-D sequence of positive integers
+        Step denominator, same length as `num`.
+
+    Returns
+    -------
+    1-D integer array
+        The residual of each segment, length `len(tie_indices) - 1`.
+    """
+    tie_indices, tie_values = _check_points(tie_indices, tie_values)
+    if not (
+        np.issubdtype(tie_values.dtype, np.integer)
+        or np.issubdtype(tie_values.dtype, np.datetime64)
+    ):
+        raise ValueError("tie_values dtype must be either integer or datetime")
+    n_segments = max(len(tie_indices) - 1, 0)
+    num, den = _check_rate(num, den, n_segments)
+    return rust.deviation_step(
+        tie_indices.astype("u8"),
+        tie_values.astype("i8"),
+        num.astype("i8"),
+        den.astype("u8"),
+    )

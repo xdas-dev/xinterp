@@ -9,7 +9,7 @@ pub mod wide;
 use crate::divop::Method;
 use crate::piecewise::{InterpError, Points};
 use numpy::ndarray::Array1;
-use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
+use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1, PyUntypedArrayMethods};
 use pyo3::exceptions::{PyIndexError, PyKeyError, PyValueError};
 use pyo3::{pyfunction, pymodule, Bound, PyResult, Python};
 
@@ -296,5 +296,203 @@ mod rust {
             ));
         }
         Ok(py.detach(|| crate::step::infer(x, f)))
+    }
+
+    /// Validates that `num`/`den` have length 1 or `n_segments`, and that `den` is nonzero.
+    fn check_rate<'py>(
+        num: &PyReadonlyArray1<'py, i64>,
+        den: &PyReadonlyArray1<'py, u64>,
+        n_segments: usize,
+    ) -> PyResult<()> {
+        if num.len() != den.len() {
+            return Err(PyValueError::new_err(
+                "num and den must have the same length",
+            ));
+        }
+        if !(num.len() == 1 || num.len() == n_segments) {
+            return Err(PyValueError::new_err(
+                "num/den must have length 1 or len(tie_indices) - 1",
+            ));
+        }
+        if den.as_array().iter().any(|&d| d == 0) {
+            return Err(PyValueError::new_err("den values must be positive"));
+        }
+        Ok(())
+    }
+
+    /// Error mapping for `forward_step`, matching `forward_int`/`forward_float`'s convention.
+    fn forward_step_error(err: InterpError) -> pyo3::PyErr {
+        match err {
+            InterpError::NotStrictlyIncreasing => {
+                PyValueError::new_err("tie_indices must be strictly increasing")
+            }
+            InterpError::OutOfBounds => PyIndexError::new_err("x out of bounds"),
+            InterpError::NotFound => PyIndexError::new_err("x not found"),
+        }
+    }
+
+    /// Error mapping for `inverse_step`, matching `inverse_int`/`inverse_float`'s convention.
+    fn inverse_step_error(err: InterpError) -> pyo3::PyErr {
+        match err {
+            InterpError::NotStrictlyIncreasing => {
+                PyValueError::new_err("tie_values must be strictly monotonic")
+            }
+            InterpError::OutOfBounds => PyKeyError::new_err("f out of bounds"),
+            InterpError::NotFound => PyKeyError::new_err("f not found"),
+        }
+    }
+
+    #[pyfunction]
+    fn forward_step_int<'py>(
+        py: Python<'py>,
+        x: PyReadonlyArray1<'py, u64>,
+        tie_indices: PyReadonlyArray1<'py, u64>,
+        tie_values: PyReadonlyArray1<'py, i64>,
+        num: PyReadonlyArray1<'py, i64>,
+        den: PyReadonlyArray1<'py, u64>,
+    ) -> PyResult<Bound<'py, PyArray1<i64>>> {
+        check_rate(&num, &den, tie_indices.len().saturating_sub(1))?;
+        let x = x.as_slice().expect("x must be contiguous");
+        let tie_indices = tie_indices
+            .as_slice()
+            .expect("tie_indices must be contiguous");
+        let tie_values = tie_values
+            .as_slice()
+            .expect("tie_values must be contiguous");
+        let num = num.as_slice().expect("num must be contiguous");
+        let den = den.as_slice().expect("den must be contiguous");
+        let series = crate::step::StepSeries::new(tie_indices, tie_values, num, den);
+        let f = py.detach(|| -> PyResult<Array1<i64>> {
+            let mut f = Array1::zeros(x.len());
+            for (index, value) in x.iter().zip(f.iter_mut()) {
+                *value = series.forward(*index).map_err(forward_step_error)?;
+            }
+            Ok(f)
+        })?;
+        Ok(f.into_pyarray(py))
+    }
+
+    #[pyfunction]
+    fn forward_step_float<'py>(
+        py: Python<'py>,
+        x: PyReadonlyArray1<'py, u64>,
+        tie_indices: PyReadonlyArray1<'py, u64>,
+        tie_values: PyReadonlyArray1<'py, f64>,
+        delta: PyReadonlyArray1<'py, f64>,
+    ) -> PyResult<Bound<'py, PyArray1<f64>>> {
+        let n_segments = tie_indices.len().saturating_sub(1);
+        if !(delta.len() == 1 || delta.len() == n_segments) {
+            return Err(PyValueError::new_err(
+                "delta must have length 1 or len(tie_indices) - 1",
+            ));
+        }
+        let x = x.as_slice().expect("x must be contiguous");
+        let tie_indices = tie_indices
+            .as_slice()
+            .expect("tie_indices must be contiguous");
+        let tie_values = tie_values
+            .as_slice()
+            .expect("tie_values must be contiguous");
+        let delta = delta.as_slice().expect("delta must be contiguous");
+        let series = crate::step::FloatStepSeries::new(tie_indices, tie_values, delta);
+        let f = py.detach(|| -> PyResult<Array1<f64>> {
+            let mut f = Array1::zeros(x.len());
+            for (index, value) in x.iter().zip(f.iter_mut()) {
+                *value = series.forward(*index).map_err(forward_step_error)?;
+            }
+            Ok(f)
+        })?;
+        Ok(f.into_pyarray(py))
+    }
+
+    #[pyfunction]
+    #[pyo3(signature = (f, tie_indices, tie_values, num, den, method=None))]
+    fn inverse_step_int<'py>(
+        py: Python<'py>,
+        f: PyReadonlyArray1<'py, i64>,
+        tie_indices: PyReadonlyArray1<'py, u64>,
+        tie_values: PyReadonlyArray1<'py, i64>,
+        num: PyReadonlyArray1<'py, i64>,
+        den: PyReadonlyArray1<'py, u64>,
+        method: Option<&str>,
+    ) -> PyResult<Bound<'py, PyArray1<u64>>> {
+        check_rate(&num, &den, tie_indices.len().saturating_sub(1))?;
+        let method = parse_method(method)?;
+        let f = f.as_slice().expect("f must be contiguous");
+        let tie_indices = tie_indices
+            .as_slice()
+            .expect("tie_indices must be contiguous");
+        let tie_values = tie_values
+            .as_slice()
+            .expect("tie_values must be contiguous");
+        let num = num.as_slice().expect("num must be contiguous");
+        let den = den.as_slice().expect("den must be contiguous");
+        let series = crate::step::StepSeries::new(tie_indices, tie_values, num, den);
+        let x = py.detach(|| -> PyResult<Array1<u64>> {
+            let mut x = Array1::zeros(f.len());
+            for (value, index) in f.iter().zip(x.iter_mut()) {
+                *index = series.inverse(*value, method).map_err(inverse_step_error)?;
+            }
+            Ok(x)
+        })?;
+        Ok(x.into_pyarray(py))
+    }
+
+    #[pyfunction]
+    #[pyo3(signature = (f, tie_indices, tie_values, delta, method=None))]
+    fn inverse_step_float<'py>(
+        py: Python<'py>,
+        f: PyReadonlyArray1<'py, f64>,
+        tie_indices: PyReadonlyArray1<'py, u64>,
+        tie_values: PyReadonlyArray1<'py, f64>,
+        delta: PyReadonlyArray1<'py, f64>,
+        method: Option<&str>,
+    ) -> PyResult<Bound<'py, PyArray1<u64>>> {
+        let n_segments = tie_indices.len().saturating_sub(1);
+        if !(delta.len() == 1 || delta.len() == n_segments) {
+            return Err(PyValueError::new_err(
+                "delta must have length 1 or len(tie_indices) - 1",
+            ));
+        }
+        let method = parse_method(method)?;
+        let f = f.as_slice().expect("f must be contiguous");
+        let tie_indices = tie_indices
+            .as_slice()
+            .expect("tie_indices must be contiguous");
+        let tie_values = tie_values
+            .as_slice()
+            .expect("tie_values must be contiguous");
+        let delta = delta.as_slice().expect("delta must be contiguous");
+        let series = crate::step::FloatStepSeries::new(tie_indices, tie_values, delta);
+        let x = py.detach(|| -> PyResult<Array1<u64>> {
+            let mut x = Array1::zeros(f.len());
+            for (value, index) in f.iter().zip(x.iter_mut()) {
+                *index = series.inverse(*value, method).map_err(inverse_step_error)?;
+            }
+            Ok(x)
+        })?;
+        Ok(x.into_pyarray(py))
+    }
+
+    #[pyfunction]
+    fn deviation_step<'py>(
+        py: Python<'py>,
+        tie_indices: PyReadonlyArray1<'py, u64>,
+        tie_values: PyReadonlyArray1<'py, i64>,
+        num: PyReadonlyArray1<'py, i64>,
+        den: PyReadonlyArray1<'py, u64>,
+    ) -> PyResult<Bound<'py, PyArray1<i64>>> {
+        check_rate(&num, &den, tie_indices.len().saturating_sub(1))?;
+        let tie_indices = tie_indices
+            .as_slice()
+            .expect("tie_indices must be contiguous");
+        let tie_values = tie_values
+            .as_slice()
+            .expect("tie_values must be contiguous");
+        let num = num.as_slice().expect("num must be contiguous");
+        let den = den.as_slice().expect("den must be contiguous");
+        let series = crate::step::StepSeries::new(tie_indices, tie_values, num, den);
+        let residual = py.detach(|| series.deviation());
+        Ok(Array1::from_vec(residual).into_pyarray(py))
     }
 }

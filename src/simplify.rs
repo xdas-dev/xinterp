@@ -5,7 +5,7 @@
 //! slope is fixed by a shared step. The algorithm is the sleeve; it belongs in this comment, not
 //! in the function name.
 
-use crate::step::predict;
+use crate::step::{predict, rate_at};
 
 /// A rational bound `num / den` on a slope, `den` always strictly positive.
 #[derive(Clone, Copy)]
@@ -131,17 +131,6 @@ pub fn simplify_points_float(x: &[u64], f: &[f64], en: f64, ed: f64) -> Vec<bool
         });
     }
     keep
-}
-
-/// Returns `num[i.min(num.len()-1)]` when `num` has length 1 (shared) and `num[i]` otherwise
-/// (per-segment) -- the length-1-or-n_segments convention every step kernel shares (see
-/// `src/lib.rs`'s module doc comment).
-fn rate_at(num: &[i64], den: &[u64], i: usize) -> (i64, u64) {
-    if num.len() == 1 {
-        (num[0], den[0])
-    } else {
-        (num[i], den[i])
-    }
 }
 
 /// Fuses consecutive segments whose declared step agrees and whose reconstruction drift stays

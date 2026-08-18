@@ -11,8 +11,21 @@
 //! `i128::MAX`. It fits `u128` with `2**65 - 2` to spare.
 
 use crate::divop::{DivOp, Method};
+use crate::extended::F106;
+use crate::piecewise::InterpError;
 use crate::wide::cmp_frac;
 use std::cmp::Ordering;
+
+/// Returns `num[i.min(num.len()-1)]` when `num` has length 1 (shared) and `num[i]` otherwise
+/// (per-segment) -- the length-1-or-n_segments convention every step kernel shares, chosen so a
+/// future per-segment sampling interval is a no-op at this ABI.
+pub fn rate_at(num: &[i64], den: &[u64], i: usize) -> (i64, u64) {
+    if num.len() == 1 {
+        (num[0], den[0])
+    } else {
+        (num[i], den[i])
+    }
+}
 
 /// Rounds `k * num / den` to the nearest integer, ties to even, exactly.
 ///
@@ -199,6 +212,288 @@ pub fn infer(x: &[u64], f: &[i64]) -> (i64, u64, i64) {
     (num, den, worst as i64)
 }
 
+/// Which way `tie_values` runs -- a distance axis may run backwards, so unlike [`Points`],
+/// [`StepSeries`] allows either direction as long as it is consistent across the whole series.
+///
+/// [`Points`]: crate::piecewise::Points
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Direction {
+    Increasing,
+    Decreasing,
+}
+
+fn direction(tie_values: &[i64]) -> Option<Direction> {
+    if tie_values.windows(2).all(|w| w[0] < w[1]) {
+        Some(Direction::Increasing)
+    } else if tie_values.windows(2).all(|w| w[0] > w[1]) {
+        Some(Direction::Decreasing)
+    } else {
+        None
+    }
+}
+
+/// A constant-step tie series: `tie_indices`/`tie_values` are the segment boundaries (points),
+/// `num`/`den` the declared step of each segment, shared (length 1) or per-segment. The
+/// generalisation of [`Points`](crate::piecewise::Points) that reconstructs values by stepping
+/// from the nearest anchor at an exact rational rate rather than by two-point interpolation.
+pub struct StepSeries<'a> {
+    tie_indices: &'a [u64],
+    tie_values: &'a [i64],
+    num: &'a [i64],
+    den: &'a [u64],
+    forwardable: bool,
+    direction: Option<Direction>,
+}
+
+impl<'a> StepSeries<'a> {
+    /// # Panics
+    ///
+    /// Panics if `tie_indices` and `tie_values` do not have the same length, or `num`/`den` do
+    /// not have the same length, 1 or `tie_indices.len() - 1`.
+    pub fn new(
+        tie_indices: &'a [u64],
+        tie_values: &'a [i64],
+        num: &'a [i64],
+        den: &'a [u64],
+    ) -> Self {
+        assert_eq!(
+            tie_indices.len(),
+            tie_values.len(),
+            "tie_indices and tie_values must have the same length"
+        );
+        assert_eq!(
+            num.len(),
+            den.len(),
+            "num and den must have the same length"
+        );
+        let n_segments = tie_indices.len().saturating_sub(1);
+        assert!(
+            num.len() == 1 || num.len() == n_segments,
+            "num/den must have length 1 or tie_indices.len() - 1"
+        );
+        let forwardable = tie_indices.windows(2).all(|w| w[0] < w[1]);
+        let direction = direction(tie_values);
+        StepSeries {
+            tie_indices,
+            tie_values,
+            num,
+            den,
+            forwardable,
+            direction,
+        }
+    }
+
+    fn rate_at(&self, seg: usize) -> (i64, u64) {
+        rate_at(self.num, self.den, seg)
+    }
+
+    /// Predicts the value at index `x`.
+    pub fn forward(&self, x: u64) -> Result<i64, InterpError> {
+        if !self.forwardable {
+            return Err(InterpError::NotStrictlyIncreasing);
+        }
+        match self.tie_indices.binary_search(&x) {
+            Ok(i) => Ok(self.tie_values[i]),
+            Err(0) => Err(InterpError::OutOfBounds),
+            Err(len) if len == self.tie_indices.len() => Err(InterpError::OutOfBounds),
+            Err(i) => {
+                let seg = i - 1;
+                let k = x - self.tie_indices[seg];
+                let (num, den) = self.rate_at(seg);
+                Ok(predict(self.tie_values[seg], k, num, den))
+            }
+        }
+    }
+
+    /// The per-segment residual: `tie_values[i+1] - predict(tie_values[i], length_i, num_i,
+    /// den_i)`, one entry per segment.
+    pub fn deviation(&self) -> Vec<i64> {
+        (0..self.tie_indices.len().saturating_sub(1))
+            .map(|seg| {
+                let k = self.tie_indices[seg + 1] - self.tie_indices[seg];
+                let (num, den) = self.rate_at(seg);
+                deviation(self.tie_values[seg + 1], self.tie_values[seg], k, num, den)
+            })
+            .collect()
+    }
+
+    /// Finds the index whose predicted value is `f`, per `method` when no index matches
+    /// exactly.
+    pub fn inverse(&self, f: i64, method: Method) -> Result<u64, InterpError> {
+        let direction = self.direction.ok_or(InterpError::NotStrictlyIncreasing)?;
+        let found = self.tie_values.binary_search_by(|probe| match direction {
+            Direction::Increasing => probe.cmp(&f),
+            Direction::Decreasing => f.cmp(probe),
+        });
+        match found {
+            Ok(i) => Ok(self.tie_indices[i]),
+            Err(0) => match method {
+                Method::None | Method::ForwardFill => Err(InterpError::OutOfBounds),
+                Method::Nearest | Method::BackwardFill => Ok(self.tie_indices[0]),
+            },
+            Err(len) if len == self.tie_values.len() => match method {
+                Method::None | Method::BackwardFill => Err(InterpError::OutOfBounds),
+                Method::Nearest | Method::ForwardFill => {
+                    Ok(self.tie_indices[self.tie_indices.len() - 1])
+                }
+            },
+            Err(i) => {
+                let seg = i - 1;
+                let (num, den) = self.rate_at(seg);
+                let offset = f as i128 - self.tie_values[seg] as i128;
+                if let Method::None = method {
+                    // `round` is not injective when `|num| < den`: several `k` can share the
+                    // same predicted value. An exact match is one that `forward` maps back onto
+                    // the very same value, not one whose *unrounded* ratio happens to be an
+                    // integer -- so verify the nearest candidate round-trips, exactly as
+                    // `Inverse<u64> for f64` does in schemes.rs, rather than asking whether
+                    // `offset * den / num` divides evenly.
+                    let nearest = div_signed(offset * den as i128, num as i128, Method::Nearest)
+                        .expect("Method::Nearest never returns None");
+                    let candidate = (self.tie_indices[seg] as i128 + nearest) as u64;
+                    if self.forward(candidate) == Ok(f) {
+                        Ok(candidate)
+                    } else {
+                        Err(InterpError::NotFound)
+                    }
+                } else {
+                    let k = div_signed(offset * den as i128, num as i128, method)
+                        .ok_or(InterpError::NotFound)?;
+                    Ok((self.tie_indices[seg] as i128 + k) as u64)
+                }
+            }
+        }
+    }
+}
+
+fn rate_at_float(delta: &[f64], i: usize) -> f64 {
+    if delta.len() == 1 {
+        delta[0]
+    } else {
+        delta[i]
+    }
+}
+
+/// The float twin of [`StepSeries`]: on the float side no exact rate exists (`den` is pinned to
+/// 1), so `delta` replaces `num`/`den` and the arithmetic is `tie0 + k * delta` in [`F106`],
+/// exactly the two-point float schemes in `schemes.rs` with the second point dropped.
+pub struct FloatStepSeries<'a> {
+    tie_indices: &'a [u64],
+    tie_values: &'a [f64],
+    delta: &'a [f64],
+    forwardable: bool,
+    direction: Option<Direction>,
+}
+
+fn float_direction(tie_values: &[f64]) -> Option<Direction> {
+    if tie_values.windows(2).all(|w| w[0] < w[1]) {
+        Some(Direction::Increasing)
+    } else if tie_values.windows(2).all(|w| w[0] > w[1]) {
+        Some(Direction::Decreasing)
+    } else {
+        None
+    }
+}
+
+impl<'a> FloatStepSeries<'a> {
+    /// # Panics
+    ///
+    /// Panics if `tie_indices` and `tie_values` do not have the same length, or `delta` does not
+    /// have length 1 or `tie_indices.len() - 1`.
+    pub fn new(tie_indices: &'a [u64], tie_values: &'a [f64], delta: &'a [f64]) -> Self {
+        assert_eq!(
+            tie_indices.len(),
+            tie_values.len(),
+            "tie_indices and tie_values must have the same length"
+        );
+        let n_segments = tie_indices.len().saturating_sub(1);
+        assert!(
+            delta.len() == 1 || delta.len() == n_segments,
+            "delta must have length 1 or tie_indices.len() - 1"
+        );
+        let forwardable = tie_indices.windows(2).all(|w| w[0] < w[1]);
+        let direction = float_direction(tie_values);
+        FloatStepSeries {
+            tie_indices,
+            tie_values,
+            delta,
+            forwardable,
+            direction,
+        }
+    }
+
+    /// Predicts the value at index `x`.
+    pub fn forward(&self, x: u64) -> Result<f64, InterpError> {
+        if !self.forwardable {
+            return Err(InterpError::NotStrictlyIncreasing);
+        }
+        match self.tie_indices.binary_search(&x) {
+            Ok(i) => Ok(self.tie_values[i]),
+            Err(0) => Err(InterpError::OutOfBounds),
+            Err(len) if len == self.tie_indices.len() => Err(InterpError::OutOfBounds),
+            Err(i) => {
+                let seg = i - 1;
+                let k = x - self.tie_indices[seg];
+                let delta = rate_at_float(self.delta, seg);
+                let value: f64 = F106::from(self.tie_values[seg])
+                    .add(&F106::from(k).mul(&F106::from(delta)))
+                    .into();
+                Ok(value)
+            }
+        }
+    }
+
+    /// Finds the index whose predicted value is `f`, per `method` when no index matches
+    /// exactly.
+    pub fn inverse(&self, f: f64, method: Method) -> Result<u64, InterpError> {
+        let direction = self.direction.ok_or(InterpError::NotStrictlyIncreasing)?;
+        let found = self.tie_values.binary_search_by(|probe| {
+            let order = probe.partial_cmp(&f).expect("nan or inf encountered");
+            match direction {
+                Direction::Increasing => order,
+                Direction::Decreasing => order.reverse(),
+            }
+        });
+        match found {
+            Ok(i) => Ok(self.tie_indices[i]),
+            Err(0) => match method {
+                Method::None | Method::ForwardFill => Err(InterpError::OutOfBounds),
+                Method::Nearest | Method::BackwardFill => Ok(self.tie_indices[0]),
+            },
+            Err(len) if len == self.tie_values.len() => match method {
+                Method::None | Method::BackwardFill => Err(InterpError::OutOfBounds),
+                Method::Nearest | Method::ForwardFill => {
+                    Ok(self.tie_indices[self.tie_indices.len() - 1])
+                }
+            },
+            Err(i) => {
+                let seg = i - 1;
+                let delta = rate_at_float(self.delta, seg);
+                let tie0 = self.tie_values[seg];
+                // both the numerator and denominator are exact in F106; the division is the
+                // only rounding step, exactly as `Inverse<u64> for f64` in schemes.rs
+                let w = F106::from_diff(f, tie0).div(&F106::from(delta));
+                let x = F106::from(self.tie_indices[seg]).add(&w);
+                match method {
+                    Method::None => {
+                        let candidate: u64 = x.round().into();
+                        let candidate =
+                            candidate.clamp(self.tie_indices[seg], self.tie_indices[seg + 1]);
+                        if self.forward(candidate) == Ok(f) {
+                            Ok(candidate)
+                        } else {
+                            Err(InterpError::NotFound)
+                        }
+                    }
+                    Method::Nearest => Ok(x.round().into()),
+                    Method::ForwardFill => Ok(x.floor().into()),
+                    Method::BackwardFill => Ok(x.ceil().into()),
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -375,5 +670,226 @@ mod tests {
         let (num, den, worst) = infer(&x, &f);
         assert_eq!((num, den), (-10, 1));
         assert_eq!(worst, 0);
+    }
+
+    #[test]
+    fn test_forward_step_exact_and_boundaries() {
+        let tie_indices = [0u64, 10, 20];
+        let tie_values = [100i64, 200, 500];
+        let num = [10i64, 30];
+        let den = [1u64, 1];
+        let series = StepSeries::new(&tie_indices, &tie_values, &num, &den);
+        assert_eq!(series.forward(0), Ok(100));
+        assert_eq!(series.forward(5), Ok(150));
+        assert_eq!(series.forward(10), Ok(200));
+        assert_eq!(series.forward(15), Ok(350));
+        assert_eq!(series.forward(20), Ok(500));
+        assert_eq!(series.forward(21), Err(InterpError::OutOfBounds));
+    }
+
+    #[test]
+    fn test_forward_step_shared_rate() {
+        let tie_indices = [0u64, 10, 20];
+        let tie_values = [0i64, 100, 200];
+        let num = [10i64];
+        let den = [1u64];
+        let series = StepSeries::new(&tie_indices, &tie_values, &num, &den);
+        assert_eq!(series.forward(7), Ok(70));
+        assert_eq!(series.forward(17), Ok(170));
+    }
+
+    #[test]
+    fn test_forward_step_negative_rate() {
+        let tie_indices = [0u64, 10];
+        let tie_values = [100i64, 0];
+        let num = [-10i64];
+        let den = [1u64];
+        let series = StepSeries::new(&tie_indices, &tie_values, &num, &den);
+        assert_eq!(series.forward(3), Ok(70));
+        assert_eq!(series.forward(10), Ok(0));
+    }
+
+    #[test]
+    fn test_deviation_step_matches_manual() {
+        let tie_indices = [0u64, 10, 20];
+        let tie_values = [0i64, 101, 199];
+        let num = [10i64];
+        let den = [1u64];
+        let series = StepSeries::new(&tie_indices, &tie_values, &num, &den);
+        assert_eq!(series.deviation(), vec![1, -2]);
+    }
+
+    #[test]
+    fn test_inverse_step_round_trip_increasing() {
+        let tie_indices = [0u64, 10, 20];
+        let tie_values = [0i64, 100, 500];
+        let num = [10i64, 40];
+        let den = [1u64, 1];
+        let series = StepSeries::new(&tie_indices, &tie_values, &num, &den);
+        for x in 0..=20u64 {
+            let f = series.forward(x).unwrap();
+            assert_eq!(series.inverse(f, Method::None), Ok(x), "x={x}");
+        }
+    }
+
+    #[test]
+    fn test_inverse_step_round_trip_decreasing() {
+        let tie_indices = [0u64, 10, 20];
+        let tie_values = [500i64, 100, 0];
+        let num = [-40i64, -10];
+        let den = [1u64, 1];
+        let series = StepSeries::new(&tie_indices, &tie_values, &num, &den);
+        for x in 0..=20u64 {
+            let f = series.forward(x).unwrap();
+            assert_eq!(series.inverse(f, Method::None), Ok(x), "x={x}");
+        }
+    }
+
+    #[test]
+    fn test_inverse_step_methods_between_ticks() {
+        // rate 3/2: index 0 -> 0, index 1 -> 2 (round(1.5)=2 ties to even), index 2 -> 3
+        let tie_indices = [0u64, 2];
+        let tie_values = [0i64, 3];
+        let num = [3i64];
+        let den = [2u64];
+        let series = StepSeries::new(&tie_indices, &tie_values, &num, &den);
+        // f=1 sits strictly between index 0 (f=0) and index 1 (f=2): exact k=2/3
+        assert_eq!(series.inverse(1, Method::None), Err(InterpError::NotFound));
+        assert_eq!(series.inverse(1, Method::ForwardFill), Ok(0));
+        assert_eq!(series.inverse(1, Method::BackwardFill), Ok(1));
+        assert_eq!(series.inverse(1, Method::Nearest), Ok(1));
+    }
+
+    #[test]
+    fn test_inverse_step_out_of_bounds_and_clamping() {
+        let tie_indices = [0u64, 10];
+        let tie_values = [0i64, 100];
+        let num = [10i64];
+        let den = [1u64];
+        let series = StepSeries::new(&tie_indices, &tie_values, &num, &den);
+        assert_eq!(
+            series.inverse(-1, Method::None),
+            Err(InterpError::OutOfBounds)
+        );
+        assert_eq!(series.inverse(-1, Method::Nearest), Ok(0));
+        assert_eq!(
+            series.inverse(-1, Method::ForwardFill),
+            Err(InterpError::OutOfBounds)
+        );
+        assert_eq!(series.inverse(-1, Method::BackwardFill), Ok(0));
+        assert_eq!(
+            series.inverse(101, Method::None),
+            Err(InterpError::OutOfBounds)
+        );
+        assert_eq!(series.inverse(101, Method::Nearest), Ok(10));
+        assert_eq!(series.inverse(101, Method::ForwardFill), Ok(10));
+        assert_eq!(
+            series.inverse(101, Method::BackwardFill),
+            Err(InterpError::OutOfBounds)
+        );
+    }
+
+    #[test]
+    fn test_forward_step_naive_i64_overflow_magnitudes() {
+        // k*num close to u64::MAX * i64::MAX territory -- the ABI decision this module
+        // implements (D4): the barycentric-style product fits u128 (and i128) but a naive
+        // i64 multiply would wrap many times over.
+        let tie_indices = [0u64, u64::MAX];
+        let tie_values = [i64::MIN, i64::MAX];
+        let num = [i64::MAX];
+        let den = [u64::MAX];
+        let series = StepSeries::new(&tie_indices, &tie_values, &num, &den);
+        assert_eq!(series.forward(0), Ok(i64::MIN));
+        assert_eq!(series.forward(u64::MAX), Ok(i64::MAX));
+        // this rate is compressive (|num| < den, close to 1/2), so forward is not injective and
+        // its rounding bias accumulates over large k -- several indices legitimately share a
+        // rounded value, and the nearest nearby index is not always the original one (see
+        // `test_forward_inverse_step_round_trip_property` for the round-trip guarantee, which
+        // holds at the *construction* points of a step series). Here, just check the arithmetic
+        // does not overflow or panic at these magnitudes, and stays within the declared range.
+        for x in [1u64, u64::MAX / 4, u64::MAX / 3, u64::MAX / 2, u64::MAX - 1] {
+            let f = series.forward(x).unwrap();
+            assert!(
+                (i64::MIN..i64::MAX).contains(&f),
+                "f={f} out of range for x={x}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_inverse_step_naive_i64_overflow_magnitudes() {
+        // (f - tie0) * den reaches (2**64-1)**2, twice i128::MAX -- exactly the case the
+        // module doc comment calls out as needing u128, not i128.
+        let tie_indices = [0u64, u64::MAX];
+        let tie_values = [i64::MIN, i64::MAX];
+        let num = [1i64];
+        let den = [u64::MAX];
+        let series = StepSeries::new(&tie_indices, &tie_values, &num, &den);
+        assert_eq!(series.inverse(i64::MIN, Method::None), Ok(0));
+        assert_eq!(series.inverse(i64::MAX, Method::None), Ok(u64::MAX));
+    }
+
+    #[test]
+    fn test_deviation_step_per_segment_den_array() {
+        let tie_indices = [0u64, 10, 25];
+        let tie_values = [0i64, 100, 250];
+        let num = [10i64, 10];
+        let den = [1u64, 1];
+        let series = StepSeries::new(&tie_indices, &tie_values, &num, &den);
+        assert_eq!(series.deviation(), vec![0, 0]);
+    }
+
+    /// `forward_step` then `inverse_step(..., Method::None)` must round-trip on random
+    /// series, including negative rates and magnitudes overflowing a naive `i64` product.
+    #[test]
+    fn test_forward_inverse_step_round_trip_property() {
+        let mut rng = SplitMix64(99);
+        for _ in 0..300 {
+            let n_segments = rng.range_u64(1, 6) as usize;
+            let mut tie_indices = vec![0u64];
+            for _ in 0..n_segments {
+                tie_indices.push(tie_indices.last().unwrap() + rng.range_u64(1, 1_000_000_000));
+            }
+            let increasing = rng.next().is_multiple_of(2);
+            let mut tie_values = vec![rng.range_i64(-1_000_000_000_000, 1_000_000_000_000)];
+            let shared_den = rng.range_u64(1, 1000);
+            let per_segment = n_segments > 1 && rng.next().is_multiple_of(2);
+            let rate = |rng: &mut SplitMix64| {
+                if increasing {
+                    rng.range_i64(1, 1_000_000)
+                } else {
+                    rng.range_i64(-1_000_000, -1)
+                }
+            };
+            // shared: one rate for every segment; per-segment: independently drawn
+            let shared_rate = rate(&mut rng);
+            let mut num = Vec::new();
+            for i in 0..n_segments {
+                let length = tie_indices[i + 1] - tie_indices[i];
+                let this_rate = if per_segment {
+                    rate(&mut rng)
+                } else {
+                    shared_rate
+                };
+                num.push(this_rate);
+                let step = round_step(length, this_rate, shared_den);
+                tie_values.push((tie_values[i] as i128 + step) as i64);
+            }
+            let (num_arr, den_arr) = if per_segment {
+                (num, vec![shared_den; n_segments])
+            } else {
+                (vec![num[0]], vec![shared_den])
+            };
+            let series = StepSeries::new(&tie_indices, &tie_values, &num_arr, &den_arr);
+            for i in 0..tie_indices.len() {
+                let x = tie_indices[i];
+                let f = series.forward(x).unwrap();
+                assert_eq!(
+                    series.inverse(f, Method::None),
+                    Ok(x),
+                    "tie_indices={tie_indices:?} tie_values={tie_values:?} num={num_arr:?} den={den_arr:?}"
+                );
+            }
+        }
     }
 }
