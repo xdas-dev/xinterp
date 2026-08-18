@@ -61,10 +61,19 @@ def inverse(f, xp, fp, method=None):
     return _inverse(xp, fp, f=f, method=method)
 
 
-def wraps(func_int, func_float):
+def wraps(func_int, func_float, func_uint):
     def func(xp, fp, *, x=None, f=None, **kwargs):
         xp, fp, x, f, isscalar = check(xp, fp, x, f)
-        if np.issubdtype(fp.dtype, np.integer) or np.issubdtype(
+        if np.issubdtype(fp.dtype, np.unsignedinteger):
+            if x is not None:
+                out = func_uint(
+                    x.astype("u8"), xp.astype("u8"), fp.astype("u8"), **kwargs
+                ).astype(fp.dtype)
+            elif f is not None:
+                out = func_uint(
+                    f.astype("u8"), xp.astype("u8"), fp.astype("u8"), **kwargs
+                ).astype(xp.dtype)
+        elif np.issubdtype(fp.dtype, np.integer) or np.issubdtype(
             fp.dtype, np.datetime64
         ):
             if x is not None:
@@ -112,7 +121,9 @@ def check(xp, fp, x=None, f=None):
     if (x is None) == (f is None):
         raise ValueError("either x or f must be provided")
     if x is not None:
-        x = np.asarray(x).astype(xp.dtype)
+        x = np.asarray(x)
+        if np.issubdtype(x.dtype, np.datetime64):
+            x = x.astype("i8")
         if x.ndim == 0:
             x = x.reshape(1)
             isscalar = True
@@ -120,14 +131,26 @@ def check(xp, fp, x=None, f=None):
             isscalar = False
         else:
             raise ValueError("x must be 1D or scalar")
-        if not x.dtype == xp.dtype:
-            raise ValueError("x and xp must have the same dtype")
+        if np.issubdtype(x.dtype, np.floating) and not np.all(x == np.floor(x)):
+            raise ValueError("x values must be integral")
         if not np.all(x >= 0):
             raise ValueError("x values must be positive")
         if not np.all(xp[1:] > xp[:-1]):
             raise ValueError("xp must be strictly increasing")
     if f is not None:
-        f = np.asarray(f).astype(fp.dtype)
+        f_orig = np.asarray(f)
+        if np.issubdtype(fp.dtype, np.unsignedinteger) and np.issubdtype(
+            f_orig.dtype, np.signedinteger
+        ):
+            if not np.all(f_orig >= 0):
+                raise ValueError("f values must be positive")
+        f = f_orig.astype(fp.dtype)
+        if np.issubdtype(f_orig.dtype, np.floating):
+            lossless = np.array_equal(f_orig, f.astype(f_orig.dtype), equal_nan=True)
+        else:
+            lossless = np.array_equal(f_orig, f.astype(f_orig.dtype))
+        if not lossless:
+            raise ValueError("f values must fit fp's dtype without loss")
         if f.ndim == 0:
             f = f.reshape(1)
             isscalar = True
@@ -135,8 +158,6 @@ def check(xp, fp, x=None, f=None):
             isscalar = False
         else:
             raise ValueError("f must be 1D or scalar")
-        if not f.dtype == fp.dtype:
-            raise ValueError("f and fp must have the same dtype")
         if not np.all(np.isfinite(f)):
             raise ValueError("f values must be finite")
         if not np.all(fp[1:] > fp[:-1]):
@@ -144,5 +165,5 @@ def check(xp, fp, x=None, f=None):
     return xp, fp, x, f, isscalar
 
 
-_forward = wraps(rust.forward_int, rust.forward_float)
-_inverse = wraps(rust.inverse_int, rust.inverse_float)
+_forward = wraps(rust.forward_int, rust.forward_float, rust.forward_uint)
+_inverse = wraps(rust.inverse_int, rust.inverse_float, rust.inverse_uint)

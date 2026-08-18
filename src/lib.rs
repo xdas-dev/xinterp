@@ -55,6 +55,33 @@ mod rust {
     }
 
     #[pyfunction]
+    fn forward_uint<'py>(
+        py: Python<'py>,
+        x: PyReadonlyArray1<'py, u64>,
+        xp: PyReadonlyArray1<'py, u64>,
+        fp: PyReadonlyArray1<'py, u64>,
+    ) -> PyResult<Bound<'py, PyArray1<u64>>> {
+        let x = x.as_array();
+        let xp = xp.as_array();
+        let fp = fp.as_array();
+        let interp = Interp::new(xp.to_vec(), fp.to_vec());
+        let mut f = Array1::zeros(x.len());
+        for (index, value) in x.iter().zip(f.iter_mut()) {
+            match interp.forward(*index) {
+                Ok(result) => *value = result,
+                Err(InterpError::NotStrictlyIncreasing) => {
+                    return Err(PyValueError::new_err("xp must be strictly increasing"))
+                }
+                Err(InterpError::OutOfBounds) => {
+                    return Err(PyIndexError::new_err("x out of bounds"))
+                }
+                Err(InterpError::NotFound) => return Err(PyIndexError::new_err("x not found")),
+            }
+        }
+        Ok(f.into_pyarray(py))
+    }
+
+    #[pyfunction]
     fn forward_float<'py>(
         py: Python<'py>,
         x: PyReadonlyArray1<'py, u64>,
@@ -125,6 +152,36 @@ mod rust {
         let fp = fp.as_array().to_vec();
         let method = parse_method(method)?;
         let interp = Interp::new(xp, fp);
+        let mut x = Array1::zeros(f.len());
+        for (value, index) in f.iter().zip(x.iter_mut()) {
+            match interp.inverse(*value, method) {
+                Ok(result) => *index = result,
+                Err(InterpError::NotStrictlyIncreasing) => {
+                    return Err(PyValueError::new_err("fp must be strictly increasing"))
+                }
+                Err(InterpError::OutOfBounds) => {
+                    return Err(PyKeyError::new_err("f out of bounds"))
+                }
+                Err(InterpError::NotFound) => return Err(PyKeyError::new_err("f not found")),
+            }
+        }
+        Ok(x.into_pyarray(py))
+    }
+
+    #[pyfunction]
+    #[pyo3(signature = (f, xp, fp, method=None))]
+    fn inverse_uint<'py>(
+        py: Python<'py>,
+        f: PyReadonlyArray1<'py, u64>,
+        xp: PyReadonlyArray1<'py, u64>,
+        fp: PyReadonlyArray1<'py, u64>,
+        method: Option<&str>,
+    ) -> PyResult<Bound<'py, PyArray1<u64>>> {
+        let f = f.as_array();
+        let xp = xp.as_array();
+        let fp = fp.as_array();
+        let method = parse_method(method)?;
+        let interp = Interp::new(xp.to_vec(), fp.to_vec());
         let mut x = Array1::zeros(f.len());
         for (value, index) in f.iter().zip(x.iter_mut()) {
             match interp.inverse(*value, method) {

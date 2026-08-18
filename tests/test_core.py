@@ -40,15 +40,15 @@ class TestForward:
             forward([1], [0, 2], [np.inf, np.inf])
 
     def test_dtype_matching(self):
-        forward([1.0], [0, 2], [3, 5]) == 4
-        forward([1], [0, 2], [3.0, 5.0]) == 4.0
-        forward(np.array([1], dtype="M8[s]"), [0, 2], [3.0, 5.0]) == 4.0
-        forward(np.array([1], dtype="M8[s]"), [0, 2], [3, 5]) == 4
-        forward([1.0], [0, 2], np.array([3, 5], dtype="M8[s]")) == np.array(
-            [4], dtype="M8[s]"
+        assert forward([1.0], [0, 2], [3, 5])[0] == 4
+        assert forward([1], [0, 2], [3.0, 5.0])[0] == 4.0
+        assert forward(np.array([1], dtype="M8[s]"), [0, 2], [3.0, 5.0])[0] == 4.0
+        assert forward(np.array([1], dtype="M8[s]"), [0, 2], [3, 5])[0] == 4
+        assert forward([1.0], [0, 2], np.array([3, 5], dtype="M8[s]"))[0] == np.array(
+            4, dtype="M8[s]"
         )
-        forward([1], [0, 2], np.array([3, 5], dtype="M8[s]")) == np.array(
-            [4], dtype="M8[s]"
+        assert forward([1], [0, 2], np.array([3, 5], dtype="M8[s]"))[0] == np.array(
+            4, dtype="M8[s]"
         )
 
     def test_raises_not_strictly_incresing(self):
@@ -155,12 +155,12 @@ class TestInverse:
             inverse([np.inf], [0, 2], [3.0, 5.0])
 
     def test_dtype_matching(self):
-        inverse([4.0], [0, 2], [3, 5]) == 1
-        inverse([4], [0, 2], [3.0, 5.0]) == 1
-        inverse(np.array([4], dtype="M8[s]"), [0, 2], [3.0, 5.0]) == 1
-        inverse(np.array([4], dtype="M8[s]"), [0, 2], [3, 5]) == 1
-        inverse([4.0], [0, 2], np.array([3, 5], dtype="M8[s]")) == 1
-        inverse([4], [0, 2], np.array([3, 5], dtype="M8[s]")) == 1
+        assert inverse([4.0], [0, 2], [3, 5])[0] == 1
+        assert inverse([4], [0, 2], [3.0, 5.0])[0] == 1
+        assert inverse(np.array([4], dtype="M8[s]"), [0, 2], [3.0, 5.0])[0] == 1
+        assert inverse(np.array([4], dtype="M8[s]"), [0, 2], [3, 5])[0] == 1
+        assert inverse([4.0], [0, 2], np.array([3, 5], dtype="M8[s]"))[0] == 1
+        assert inverse([4], [0, 2], np.array([3, 5], dtype="M8[s]"))[0] == 1
 
     def test_raises_not_strictly_incresing(self):
         with pytest.raises(ValueError, match="fp must be strictly increasing"):
@@ -189,8 +189,8 @@ class TestInverse:
             inverse([4.0], [0, 2], [3.0, 7.0])
         with pytest.raises(KeyError, match="f not found"):
             inverse([5.5], [0, 2], [3.0, 7.0])
-        inverse([5.0 + 1e-16], [0, 2], [3.0, 7.0])
-        inverse([5.0 - 1e-16], [0, 2], [3.0, 7.0])
+        assert inverse([5.0 + 1e-16], [0, 2], [3.0, 7.0])[0] == 1
+        assert inverse([5.0 - 1e-16], [0, 2], [3.0, 7.0])[0] == 1
 
     def test_raises_wrong_method(self):
         with pytest.raises(
@@ -316,3 +316,63 @@ class TestInverse:
         cases = [(1, 21), (2, 23), (3, 25), (4, 27), (5, 29), (6, 31), (7, 33), (8, 35)]
         for x, f in cases:
             assert inverse([float(f)], xp, fp, method="bfill")[0] == x
+
+
+class TestBoundaryHardening:
+    """Regression tests for review.md's Correctness findings (C1-C4)."""
+
+    def test_c1_uint64_fp_above_i64_max_no_longer_wraps(self):
+        assert (
+            forward(1, [0, 2], np.array([0, 2**63 + 10], dtype="u8"))
+            == 4611686018427387909
+        )
+        assert forward(1, [0, 2], np.array([2**63 - 2, 2**63 + 2], dtype="u8")) == 2**63
+        assert (
+            inverse(
+                np.uint64(2**63), [0, 2], np.array([2**63 - 2, 2**63 + 2], dtype="u8")
+            )
+            == 1
+        )
+
+    def test_c2_narrow_xp_no_longer_wraps_x(self):
+        with pytest.raises(IndexError, match="x out of bounds"):
+            forward(2**32, np.array([0, 2], dtype="i4"), [0, 100])
+        with pytest.raises(IndexError, match="x out of bounds"):
+            forward(300, np.array([0, 100], dtype="i1"), [0, 1000])
+
+    def test_c2_narrow_xp_reports_out_of_bounds_not_positivity(self):
+        with pytest.raises(IndexError, match="x out of bounds"):
+            forward(2**31, np.array([0, 2], dtype="i4"), [0, 100])
+
+    def test_c2_narrow_fp_rejects_lossy_f_cast(self):
+        with pytest.raises(
+            ValueError, match="f values must fit fp's dtype without loss"
+        ):
+            inverse(2**32 + 4, [0, 2], np.array([3, 5], dtype="i4"))
+
+    def test_c2_f4_overflow_reports_truncation_not_finiteness(self):
+        with pytest.raises(
+            ValueError, match="f values must fit fp's dtype without loss"
+        ):
+            inverse(1e300, [0, 2], np.array([3.0, 5.0], dtype="f4"))
+
+    def test_c2_narrow_xp_on_output_side_is_still_fine(self):
+        assert inverse(4, np.array([0, 70000], dtype="u4"), [3, 5]) == 35000
+
+    def test_c3_non_integral_x_raises(self):
+        with pytest.raises(ValueError, match="x values must be integral"):
+            forward(1.9, [0, 2], [0, 100])
+        with pytest.raises(ValueError, match="x values must be integral"):
+            forward(np.float32(1.9), [0, 2], [0, 100])
+
+    def test_c3_integral_float_x_still_works(self):
+        assert forward([1.0], [0, 2], [0, 100])[0] == 50
+
+    def test_c4_dead_dtype_guards_removed(self):
+        # x is no longer forced onto xp's dtype, so a mismatched dtype pair is
+        # no longer silently coerced into passing the (now-deleted) guard.
+        assert forward(np.array([1], dtype="u2"), [0, 2], [0, 100])[0] == 50
+
+    def test_negative_f_against_unsigned_fp_raises_rather_than_wraps(self):
+        with pytest.raises(ValueError, match="f values must be positive"):
+            inverse(-1, [0, 2], np.array([3, 5], dtype="u8"))
