@@ -1,0 +1,6 @@
+# Point pyo3's build script at the interpreter uv manages, so `cargo test`,
+# `cargo clippy` and `cargo miri` work without any environment set by hand.
+# Run `uv sync` first to create `.venv`. An explicit PYO3_PYTHON still wins
+# (force = false), which is what CI relies on.
+[env]
+PYO3_PYTHON = { value = ".venv/bin/python", relative = true, force = false }

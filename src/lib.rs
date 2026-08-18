@@ -8,11 +8,26 @@ use crate::piecewise::{Interp, InterpError};
 use numpy::ndarray::Array1;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
 use pyo3::exceptions::{PyIndexError, PyKeyError, PyValueError};
-use pyo3::{pymodule, types::PyModule, Bound, PyResult, Python};
+use pyo3::{pyfunction, pymodule, Bound, PyResult, Python};
+
+/// Parse the Python-facing method name into a rounding mode.
+fn parse_method(method: Option<&str>) -> PyResult<Method> {
+    match method {
+        None => Ok(Method::None),
+        Some("nearest") => Ok(Method::Nearest),
+        Some("ffill") => Ok(Method::ForwardFill),
+        Some("bfill") => Ok(Method::BackwardFill),
+        Some(_) => Err(PyValueError::new_err(
+            "method must be either None, 'nearest', 'ffill' or 'bfill'",
+        )),
+    }
+}
 
 #[pymodule]
-fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
-    #[pyfn(m)]
+mod rust {
+    use super::*;
+
+    #[pyfunction]
     fn forward_int<'py>(
         py: Python<'py>,
         x: PyReadonlyArray1<'py, u64>,
@@ -38,7 +53,8 @@ fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
         }
         Ok(f.into_pyarray(py))
     }
-    #[pyfn(m)]
+
+    #[pyfunction]
     fn forward_float<'py>(
         py: Python<'py>,
         x: PyReadonlyArray1<'py, u64>,
@@ -64,7 +80,8 @@ fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
         }
         Ok(f.into_pyarray(py))
     }
-    #[pyfn(m)]
+
+    #[pyfunction]
     #[pyo3(signature = (f, xp, fp, method=None))]
     fn inverse_int<'py>(
         py: Python<'py>,
@@ -76,17 +93,7 @@ fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
         let f = f.as_array();
         let xp = xp.as_array();
         let fp = fp.as_array();
-        let method = match method {
-            None => Method::None,
-            Some("nearest") => Method::Nearest,
-            Some("ffill") => Method::ForwardFill,
-            Some("bfill") => Method::BackwardFill,
-            Some(_) => {
-                return Err(PyValueError::new_err(
-                    "method must be either None, 'nearest', 'ffill' or 'bfill'",
-                ))
-            }
-        };
+        let method = parse_method(method)?;
         let interp = Interp::new(xp.to_vec(), fp.to_vec());
         let mut x = Array1::zeros(f.len());
         for (value, index) in f.iter().zip(x.iter_mut()) {
@@ -103,7 +110,8 @@ fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
         }
         Ok(x.into_pyarray(py))
     }
-    #[pyfn(m)]
+
+    #[pyfunction]
     #[pyo3(signature = (f, xp, fp, method=None))]
     fn inverse_float<'py>(
         py: Python<'py>,
@@ -115,17 +123,7 @@ fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
         let f = f.as_array();
         let xp = xp.as_array().to_vec();
         let fp = fp.as_array().to_vec();
-        let method = match method {
-            None => Method::None,
-            Some("nearest") => Method::Nearest,
-            Some("ffill") => Method::ForwardFill,
-            Some("bfill") => Method::BackwardFill,
-            Some(_) => {
-                return Err(PyValueError::new_err(
-                    "method must be either None, 'nearest', 'ffill' or 'bfill'",
-                ))
-            }
-        };
+        let method = parse_method(method)?;
         let interp = Interp::new(xp, fp);
         let mut x = Array1::zeros(f.len());
         for (value, index) in f.iter().zip(x.iter_mut()) {
@@ -142,5 +140,4 @@ fn rust<'py>(_py: Python<'py>, m: &Bound<'py, PyModule>) -> PyResult<()> {
         }
         Ok(x.into_pyarray(py))
     }
-    Ok(())
 }

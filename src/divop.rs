@@ -42,7 +42,7 @@ impl DivOp for u128 {
                     Some(div)
                 } else if rem * 2 > rhs {
                     Some(div + 1)
-                } else if div % 2 == 0 {
+                } else if div.is_multiple_of(2) {
                     Some(div)
                 } else {
                     Some(div + 1)

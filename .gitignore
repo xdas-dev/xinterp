@@ -68,8 +68,6 @@ docs/_build/
 # VSCode
 .vscode/
 
-# Pyenv
-.python-version
-
-# Lock
-Cargo.lock
+# The dev toolchain is uv + maturin, so these three are tracked on purpose:
+# .python-version pins the interpreter uv provisions, and both lock files make
+# `uv sync` and the published wheels reproducible.

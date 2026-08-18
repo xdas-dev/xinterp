@@ -1,9 +1,9 @@
 # xinterp
 
 This package enables index to value mapping both in a forward and backward way.
-inverse retrieval of indices from given values ca be done with different mathching
-rules (None, nearest, forward-fill, backward-fill). Results are exacts even using 
-big integers values (e.g., nanseconds datetime64).
+Inverse retrieval of indices from given values can be done with different matching
+rules (None, nearest, forward-fill, backward-fill). Results are exact even when
+using big integer values (e.g., nanosecond datetime64).
 
 ## Installation
 
@@ -30,3 +30,16 @@ result = inverse(x, xp, fp, method="nearest")
 expected = np.array([0, 5, 10, 15, 20])
 assert np.array_equal(result, expected)
 ```
+
+## Development
+
+The project is developed with [uv](https://docs.astral.sh/uv/) and
+[maturin](https://www.maturin.rs/):
+
+```sh
+uv sync        # build the extension and install the dev dependencies
+uv run pytest  # Python suite
+cargo test     # Rust suite
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full toolchain.

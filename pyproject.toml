@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "xinterp"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -12,11 +12,20 @@ classifiers = [
 dynamic = ["version"]
 dependencies = ["numpy"]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-  "black",
-  "isort",
-  "pytest",
+    "maturin>=1.4,<2.0",
+    "pytest>=7",
+]
+
+[tool.uv]
+# Rebuild the extension when a Rust source, the crate manifest or the lock file
+# changes; without this uv reuses a stale wheel after cargo-level edits.
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "Cargo.lock" },
+    { file = "src/**/*.rs" },
 ]
 
 [tool.maturin]

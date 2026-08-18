@@ -8,7 +8,7 @@
 //! # Examples
 //!
 //! ```
-//! use xinterp::{Interp, InterpError};
+//! use xinterp::piecewise::Interp;
 //! use xinterp::divop::Method;
 //!
 //! let xp = vec![0, 2, 4];
