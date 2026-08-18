@@ -110,44 +110,6 @@ impl Inverse<u64> for f64 {
     }
 }
 
-pub trait Zero: Sized {
-    fn zero() -> Self;
-}
-impl Zero for u64 {
-    fn zero() -> u64 {
-        0
-    }
-}
-impl Zero for i64 {
-    fn zero() -> i64 {
-        0
-    }
-}
-impl Zero for f64 {
-    fn zero() -> f64 {
-        0.0
-    }
-}
-
-pub trait Distance: Sized {
-    fn distance(self, rhs: Self) -> Self;
-}
-impl Distance for u64 {
-    fn distance(self, rhs: u64) -> u64 {
-        self.abs_diff(rhs)
-    }
-}
-impl Distance for i64 {
-    fn distance(self, rhs: i64) -> i64 {
-        self.abs_diff(rhs).try_into().unwrap_or(i64::MAX)
-    }
-}
-impl Distance for f64 {
-    fn distance(self, rhs: Self) -> f64 {
-        (self - rhs).abs()
-    }
-}
-
 /// Implements signed to unsinged translation. Used to apply schemes on unsigned integers where
 /// no overflow can occur.
 pub trait ToUnsigned<U> {
