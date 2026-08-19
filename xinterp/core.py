@@ -54,7 +54,11 @@ def inverse_points(f, xp, fp, method=None):
         The values of the data points, must be strictly increasing.
     method : str or None, optional
         The method to use for inexact matches:
-        - None (default): exact match, raises otherwise
+        - None (default): resolves to the index whose `forward_points` value is
+          exactly `f`. Since `forward_points` itself rounds to the nearest tick,
+          that index is not always the exact solve's -- the nearest candidate index
+          is checked against `forward_points` and returned when it round-trips;
+          otherwise this raises.
         - "nearest": nearest match, ties to even. A value beyond either end of
           `fp` clamps to that end's index, however far outside the range it
           falls -- there is no distance limit.
@@ -248,10 +252,12 @@ def simplify_points(x, f, en, ed):
     f : 1-D sequence of floats, integers, datetime64s or timedelta64s
         The tie values, same length as `x`.
     en, ed : numbers
-        The tolerance, as an exact ratio `en / ed` (`ed` strictly positive). For
-        integers and datetimes, `en`/`ed` are counted in ticks; this function has no
-        opinion on what the tolerance means, or on the half-tick slack a caller may
-        want to fold in.
+        The tolerance, as an exact ratio `en / ed` (`ed` strictly positive), measured
+        against the unrounded chord -- this function has no opinion on the tick
+        rounding `forward_points` applies to the reconstruction. To bound the
+        *reconstructed* value's distance from the original by `tol` ticks instead, pass
+        `en / ed = tol + 1/2`: the reconstruction rounds to the nearest tick, so a chord
+        within half a tick of an exact match is exact once rounded.
 
     Returns
     -------
@@ -277,9 +283,11 @@ def simplify_step(tie_values, tie_lengths, num, den, tol):
 
     Segment `i` starts at `tie_values[i]` and spans `tie_lengths[i]` index ticks, at
     rate `num[i] / den[i]` (or the single shared rate, when `num`/`den` have length 1).
-    One-pass greedy walk: fuses while the run's steps agree and the spread of its
-    junction offsets stays within `2 * tol`, then re-anchors the run's tie value to the
-    Chebyshev centre of those offsets -- so a surviving value may move by up to `tol`.
+    One-pass greedy walk: fuses while the run's steps agree and every sample the run
+    would predict stays within `tol` of what it predicted before fusing, then
+    re-anchors the run's tie value to the Chebyshev centre of the samples' offsets --
+    so a surviving tie value, too, may move by up to `tol`. `tol` bounds every
+    reconstructed sample, not only the tie values.
 
     Parameters
     ----------
@@ -292,7 +300,7 @@ def simplify_step(tie_values, tie_lengths, num, den, tol):
     den : 1-D sequence of positive integers
         Step denominator, same length as `num`.
     tol : integer
-        The tolerance budget, in tie-value ticks.
+        The tolerance budget, in ticks, on how far any reconstructed sample may move.
 
     Returns
     -------
@@ -335,7 +343,7 @@ def infer_step(x, f):
     `(x, f)`.
 
     The length-weighted Chebyshev centre of the per-segment rates, in exact integers,
-    gcd-reduced (D2: an irreducible fraction is the canonical, comparable form). Returns
+    gcd-reduced -- an irreducible fraction is the canonical, comparable form. Returns
     the worst per-segment absolute deviation from it alongside.
 
     Parameters

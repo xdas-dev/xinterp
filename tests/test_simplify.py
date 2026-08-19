@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from xinterp.core import infer_step, simplify_points, simplify_step
+from xinterp.core import forward_step, infer_step, simplify_points, simplify_step
 
 
 def _sleeve_loop_reference(positions, values, en, ed):
@@ -14,7 +14,7 @@ def _sleeve_loop_reference(positions, values, en, ed):
     for i in range(1, len(positions)):
         dx = positions[i] - ax
         dy = values[i] - ay
-        if not (lo is None or (lo[0] * dx <= dy * lo[1] and dy * hi[1] <= hi[0] * dx)):
+        if not (lo is None or (lo[0] * dx < dy * lo[1] and dy * hi[1] < hi[0] * dx)):
             keep[i - 1] = True
             ax, ay = positions[i - 1], values[i - 1]
             dx = positions[i] - ax
@@ -200,6 +200,55 @@ class TestSimplifyStep:
             keep, fused = simplify_step(values, lengths, [rate_num], [rate_den], tol)
             assert keep[0]
             assert len(fused) == int(np.sum(keep))
+
+    def test_worst_sample_drift_never_exceeds_tol(self):
+        # the contract: no SAMPLE may drift by more than tol, not just the fused tie
+        # values
+        rng = np.random.default_rng(2)
+        for tol in (0, 1, 2, 3, 5):
+            for _ in range(50):
+                n = int(rng.integers(2, 15))
+                lengths = rng.integers(1, 40, n).astype("u8")
+                rate_num, rate_den = int(rng.integers(1, 50)), int(rng.integers(1, 15))
+                values = [0]
+                for length in lengths[:-1]:
+                    jitter = int(rng.integers(-tol, tol + 1)) if tol > 0 else 0
+                    values.append(
+                        values[-1] + round(length * rate_num / rate_den) + jitter
+                    )
+                values = np.array(values, dtype="i8")
+                tie_indices = np.concatenate([[0], np.cumsum(lengths)]).astype("u8")
+                total = int(tie_indices[-1])
+                original = forward_step(
+                    np.arange(total, dtype="u8"),
+                    tie_indices,
+                    np.concatenate([values, [values[-1]]]).astype("i8"),
+                    [rate_num],
+                    [rate_den],
+                )
+                keep, fused = simplify_step(
+                    values, lengths, [rate_num], [rate_den], tol
+                )
+                run_lengths = []
+                for k, length in zip(keep, lengths, strict=True):
+                    if k:
+                        run_lengths.append(int(length))
+                    else:
+                        run_lengths[-1] += int(length)
+                reconstructed = np.concatenate(
+                    [
+                        forward_step(
+                            np.arange(run_length, dtype="u8"),
+                            np.array([0, run_length], dtype="u8"),
+                            np.array([anchor, anchor], dtype="i8"),
+                            [rate_num],
+                            [rate_den],
+                        )
+                        for anchor, run_length in zip(fused, run_lengths, strict=True)
+                    ]
+                )
+                drift = np.abs(original.astype("i8") - reconstructed.astype("i8"))
+                assert drift.max() <= tol
 
 
 class TestInferStep:

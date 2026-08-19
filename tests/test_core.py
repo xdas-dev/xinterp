@@ -206,6 +206,29 @@ class TestInverse:
         assert inverse([5.0 + 1e-16], [0, 2], [3.0, 7.0])[0] == 1
         assert inverse([5.0 - 1e-16], [0, 2], [3.0, 7.0])[0] == 1
 
+    def test_recovers_a_value_only_forward_rounding_produces(self):
+        # slope 3/2: forward(1) rounds 1.5 up to 2 (ties to even), but 2's exact
+        # preimage is 4/3, not an integer -- the exact solve alone would reject it
+        # even though `forward` itself produced exactly this value at this index.
+        assert forward([1], [0, 2], [0, 3]) == 2
+        assert inverse([2], [0, 2], [0, 3]) == 1
+
+    def test_forward_inverse_round_trip_across_fractional_slopes(self):
+        rng = np.random.default_rng(11)
+        for _ in range(50):
+            n = int(rng.integers(2, 8))
+            xp = np.sort(rng.choice(np.arange(1, 60), n, replace=False))
+            xp[0] = 0
+            # per-segment slope strictly above one tick per index step, so forward stays
+            # injective across the whole curve
+            fp = np.cumsum(
+                np.concatenate([[0], np.diff(xp) * rng.integers(2, 6, n - 1)])
+            )
+            xs = np.arange(xp[0], xp[-1] + 1)
+            fs = forward(xs, xp, fp)
+            for x, f in zip(xs.tolist(), fs.tolist(), strict=True):
+                assert inverse([f], xp, fp)[0] == x, f"x={x} f={f} xp={xp} fp={fp}"
+
     def test_raises_wrong_method(self):
         with pytest.raises(
             ValueError,

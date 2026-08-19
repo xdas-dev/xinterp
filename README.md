@@ -11,6 +11,30 @@ resolves to that boundary's index, however far outside the range it falls. Where
 rounding to an integer is needed, ties round to even (banker's rounding), matching
 the behaviour of `round()` and `numpy.round`.
 
+## Guarantees
+
+Values live on the tick grid of their dtype and every result is the exactly
+rounded one, so the following hold at every sample rather than on average. They
+hold identically for the points and the step family.
+
+**Round trip, index to value and back.** `inverse(forward(x)) == x` whenever the
+mapping is injective -- that is, whenever values advance by at least one tick per
+index step (`|num| >= den` for the step family). Below that rate several indices
+share a value, and `inverse` returns one of them.
+
+**Round trip, value to index and back.** `forward(inverse(f)) == f` whenever
+`inverse` returns. Under `method=None` a value the curve never attains raises
+`KeyError` rather than resolving to a neighbour; the other methods resolve to a
+neighbouring index by design, so the law does not apply to them.
+
+**Simplification is lossless at zero.** `simplify(x, 0)` reproduces every sample
+exactly.
+
+**Simplification is bounded elsewhere.** No sample moves by more than `tol`.
+`simplify_step` takes `tol` in ticks and applies it directly. `simplify_points`
+measures its budget against the unrounded curve, so pass `en / ed = tol + 1/2`
+to get the same bound on the reconstruction.
+
 ## Installation
 
 ```

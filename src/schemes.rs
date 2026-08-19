@@ -74,7 +74,22 @@ impl Inverse<u64> for u64 {
     fn inverse(self, x0: u64, x1: u64, f0: u64, f1: u64, method: Method) -> Option<u64> {
         let num = (x0 as u128) * ((f1 - self) as u128) + (x1 as u128) * ((self - f0) as u128);
         let den = (f1 - f0) as u128;
-        num.div(den, method).map(|x| x as u64)
+        match method {
+            // an exact match is one that `forward` maps back onto the very same value, not one
+            // whose *unrounded* ratio happens to be an integer -- `forward` itself rounds, so
+            // the nearest candidate can be the correct preimage even when `num / den` is not
+            // exact. Verify it round-trips, exactly as `Inverse<u64> for f64` does above.
+            Method::None => {
+                let candidate = num.div(den, Method::Nearest).unwrap() as u64;
+                let candidate = candidate.clamp(x0, x1);
+                if candidate.forward(x0, x1, f0, f1) == self {
+                    Some(candidate)
+                } else {
+                    None
+                }
+            }
+            _ => num.div(den, method).map(|x| x as u64),
+        }
     }
 }
 impl Inverse<u64> for i64 {

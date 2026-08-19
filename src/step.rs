@@ -82,8 +82,8 @@ fn gcd(a: u128, b: u128) -> u128 {
 }
 
 /// Reduces `num / den` to an irreducible fraction, keeping the sign in `num` and `den` positive
-/// (D2: always store an irreducible fraction -- it gives the smallest denominator for that exact
-/// value and makes two rates comparable exactly).
+/// -- an irreducible fraction gives the smallest denominator for that exact value and makes two
+/// rates comparable exactly.
 ///
 /// `den` must be strictly positive. `num == 0` reduces to `(0, 1)`.
 pub fn reduce(num: i64, den: u64) -> (i64, u64) {
@@ -791,8 +791,8 @@ mod tests {
 
     #[test]
     fn test_forward_step_naive_i64_overflow_magnitudes() {
-        // k*num close to u64::MAX * i64::MAX territory -- the ABI decision this module
-        // implements (D4): the barycentric-style product fits u128 (and i128) but a naive
+        // k*num close to u64::MAX * i64::MAX territory -- the arithmetic this module uses:
+        // the barycentric-style product fits u128 (and i128) but a naive
         // i64 multiply would wrap many times over.
         let tie_indices = [0u64, u64::MAX];
         let tie_values = [i64::MIN, i64::MAX];
