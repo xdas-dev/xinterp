@@ -152,9 +152,14 @@ jobs:
     strategy:
       matrix:
         platform:
-          - runner: macos-13
+          # Both wheels are built on Apple Silicon; the x86_64 one is
+          # cross-compiled. Intel runners are not used: macos-13 was retired
+          # (a job requesting it queues until GitHub cancels it) and macos-14
+          # is deprecated. Cross-compiling keeps the Intel wheel without
+          # depending on an Intel image outliving this workflow.
+          - runner: macos-15
             target: x86_64
-          - runner: macos-14
+          - runner: macos-15
             target: aarch64
     steps:
       - uses: actions/checkout@v4
