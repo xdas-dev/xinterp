@@ -92,6 +92,32 @@ commit the result when you change dependencies.
 The remaining jobs build wheels for every supported platform and publish them
 on a tag.
 
+## Cutting a release
+
+The version lives in **one** place: `version` in `Cargo.toml`. `pyproject.toml`
+declares `dynamic = ["version"]`, so maturin reads it from the crate, and
+`xinterp.__version__` reads it back from the installed distribution metadata.
+There is nothing else to bump -- `uv.lock` records the root as an editable
+source with no version, and `Cargo.lock` picks the new one up on the next cargo
+command.
+
+1. Bump `version` in `Cargo.toml`, then run `cargo check` so `Cargo.lock`
+   follows. Commit both.
+2. In `CHANGELOG.md`, give the release its own dated heading -- move anything
+   still sitting under `Unreleased` into it, stamp the date as `## [0.2.0] -
+   YYYY-MM-DD`, and update the compare links at the bottom.
+3. Run both suites locally: `cargo test`, and `uv run pytest`.
+4. Merge to `main`, then tag that commit and push the tag:
+
+```sh
+git tag 0.2.0
+git push origin 0.2.0
+```
+
+The tag is what publishes. CI reruns the two gating jobs, builds wheels for
+every supported platform, attests them, and uploads to PyPI only if the gates
+pass -- so a red suite blocks the release rather than shipping a broken wheel.
+
 ## Conventions
 
 - Keep `cargo clippy --all-targets -- -D warnings` clean; CI gates on it.
