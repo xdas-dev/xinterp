@@ -5,9 +5,7 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-## [0.2.0]
+## [0.2.0] - 2026-08-30
 
 The release that turns a two-function package into two families of them. The
 explicit-knot pair `forward`/`inverse` becomes `forward_points`/`inverse_points`
@@ -87,6 +85,5 @@ Initial published behaviour: `forward` and `inverse` over explicit knots, exact
 for big integer values including nanosecond `datetime64`, with `None`, `nearest`,
 `ffill` and `bfill` matching rules.
 
-[Unreleased]: https://github.com/xdas-dev/xinterp/compare/0.2.0...HEAD
 [0.2.0]: https://github.com/xdas-dev/xinterp/compare/0.1.3...0.2.0
 [0.1.3]: https://github.com/xdas-dev/xinterp/releases/tag/0.1.3
