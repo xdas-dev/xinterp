@@ -25,10 +25,23 @@ struct Bound {
 /// because it lacks a vectorised wide integer, and `u128`/`i128` here has the headroom the
 /// realistic magnitudes need.
 ///
+/// With `step = Some((sn, sd))` (`sd > 0`), every chord that drops at least one point must also
+/// fit a line of slope `sn / sd` within the same tolerance -- both ends within `en / ed` of it:
+/// `|sd*ed*dy - sn*ed*dx| < 2*en*sd`, strict like the cone. A candidate failing this band ends the
+/// chord just like one leaving the cone. Consecutive pairs are never tested: they cannot be
+/// removed. So if every input pair more than one index apart passes the band, every output chord
+/// does. `None` is the plain walk, unchanged.
+///
 /// # Panics
 ///
 /// Panics if `x` and `f` do not have the same length.
-pub fn simplify_points_int(x: &[u64], f: &[i64], en: i64, ed: i64) -> Vec<bool> {
+pub fn simplify_points_int(
+    x: &[u64],
+    f: &[i64],
+    en: i64,
+    ed: i64,
+    step: Option<(i64, u64)>,
+) -> Vec<bool> {
     assert_eq!(x.len(), f.len(), "x and f must have the same length");
     let n = x.len();
     let mut keep = vec![false; n];
@@ -39,6 +52,7 @@ pub fn simplify_points_int(x: &[u64], f: &[i64], en: i64, ed: i64) -> Vec<bool> 
     keep[0] = true;
     keep[n - 1] = true;
     let (en, ed) = (en as i128, ed as i128);
+    let step = step.map(|(sn, sd)| (sn as i128, sd as i128));
     let (mut ax, mut ay) = (x[0], f[0]);
     let mut cone: Option<(Bound, Bound)> = None;
     for i in 1..n {
@@ -48,8 +62,14 @@ pub fn simplify_points_int(x: &[u64], f: &[i64], en: i64, ed: i64) -> Vec<bool> 
             None => true,
             // strict: a point sitting exactly on the cone's edge is the one case where the
             // reconstruction's own rounding can push it outside a non-strict `tol` budget (see
-            // the module doc comment), so it must not be treated as already covered
-            Some((lo, hi)) => lo.num * dx < dy * lo.den && dy * hi.den < hi.num * dx,
+            // the module doc comment), so it must not be treated as already covered. The cone is
+            // non-empty exactly when `i` is at least two indices past the anchor, i.e. when the
+            // chord would drop a point, which is also exactly when the step band applies.
+            Some((lo, hi)) => {
+                lo.num * dx < dy * lo.den
+                    && dy * hi.den < hi.num * dx
+                    && step.is_none_or(|(sn, sd)| (sd * ed * dy - sn * ed * dx).abs() < 2 * en * sd)
+            }
         };
         if !inside {
             keep[i - 1] = true;
@@ -80,12 +100,18 @@ pub fn simplify_points_int(x: &[u64], f: &[i64], en: i64, ed: i64) -> Vec<bool> 
 }
 
 /// The floating-point twin of [`simplify_points_int`], for tie values with no exact tick
-/// representation. Same walk, plain `f64` arithmetic for the cone.
+/// representation. Same walk, plain `f64` arithmetic for the cone and the step band.
 ///
 /// # Panics
 ///
 /// Panics if `x` and `f` do not have the same length.
-pub fn simplify_points_float(x: &[u64], f: &[f64], en: f64, ed: f64) -> Vec<bool> {
+pub fn simplify_points_float(
+    x: &[u64],
+    f: &[f64],
+    en: f64,
+    ed: f64,
+    step: Option<(f64, f64)>,
+) -> Vec<bool> {
     assert_eq!(x.len(), f.len(), "x and f must have the same length");
     let n = x.len();
     let mut keep = vec![false; n];
@@ -107,7 +133,12 @@ pub fn simplify_points_float(x: &[u64], f: &[f64], en: f64, ed: f64) -> Vec<bool
         let inside = match &cone {
             None => true,
             // strict, mirroring `simplify_points_int` -- see its comment
-            Some((lo, hi)) => lo.num * dx < dy * lo.den && dy * hi.den < hi.num * dx,
+            Some((lo, hi)) => {
+                lo.num * dx < dy * lo.den
+                    && dy * hi.den < hi.num * dx
+                    && step
+                        .is_none_or(|(sn, sd)| (sd * ed * dy - sn * ed * dx).abs() < 2.0 * en * sd)
+            }
         };
         if !inside {
             keep[i - 1] = true;
@@ -295,7 +326,7 @@ mod tests {
     fn test_two_ties_pass_through() {
         let x = [0u64, 9];
         let f = [0i64, 9];
-        assert_eq!(simplify_points_int(&x, &f, 0, 1), [true, true]);
+        assert_eq!(simplify_points_int(&x, &f, 0, 1, None), [true, true]);
     }
 
     #[test]
@@ -305,7 +336,7 @@ mod tests {
         // reject (see its comment). Even perfectly collinear points therefore survive.
         let x = [0u64, 1, 2];
         let f = [0i64, 1, 2];
-        assert_eq!(simplify_points_int(&x, &f, 0, 1), [true, true, true]);
+        assert_eq!(simplify_points_int(&x, &f, 0, 1, None), [true, true, true]);
     }
 
     #[test]
@@ -316,14 +347,17 @@ mod tests {
         // strict cone keeps it, giving an exact reconstruction.
         let x = [0u64, 1, 2];
         let f = [0i64, 3, 5];
-        assert_eq!(simplify_points_int(&x, &f, 1, 2), [true, true, true]);
+        assert_eq!(simplify_points_int(&x, &f, 1, 2, None), [true, true, true]);
     }
 
     #[test]
     fn test_real_discontinuity_survives() {
         let x = [0u64, 500, 501, 1000];
         let f = [0i64, 50_000, 50_100 + 2, 100_000 + 2];
-        assert_eq!(simplify_points_int(&x, &f, 0, 1), [true, true, true, true]);
+        assert_eq!(
+            simplify_points_int(&x, &f, 0, 1, None),
+            [true, true, true, true]
+        );
     }
 
     #[test]
@@ -335,7 +369,10 @@ mod tests {
         // path to collapse it to 2 points.
         let x = [0u64, 999, 1000, 1999];
         let f = [0i64, 999, 1001, 2000];
-        assert_eq!(simplify_points_int(&x, &f, 0, 1), [true, true, true, true]);
+        assert_eq!(
+            simplify_points_int(&x, &f, 0, 1, None),
+            [true, true, true, true]
+        );
     }
 
     #[test]
@@ -343,12 +380,101 @@ mod tests {
         let x = [0u64, 9, 10, 19];
         let f = [0.0f64, 9.0, 10.5, 19.5];
         assert_eq!(
-            simplify_points_float(&x, &f, 1.0, 1.0),
+            simplify_points_float(&x, &f, 1.0, 1.0, None),
             [true, false, false, true]
         );
         assert_eq!(
-            simplify_points_float(&x, &f, 0.1, 1.0),
+            simplify_points_float(&x, &f, 0.1, 1.0, None),
             [true, true, true, true]
+        );
+    }
+
+    #[test]
+    fn test_step_band_changes_nothing_when_every_pair_passes_it() {
+        // values within ±1 of the rate line, budget 2*en/ed >= 3: every pair passes the band,
+        // so the band never ends a chord and the walk is the plain one
+        let mut rng = SplitMix64(7);
+        for _ in 0..200 {
+            let n = rng.range_u64(3, 30) as usize;
+            let mut x = vec![0u64];
+            let mut f = Vec::new();
+            for _ in 1..n {
+                let step = rng.range_u64(1, 100);
+                x.push(x.last().unwrap() + step);
+            }
+            for &xi in &x {
+                f.push(7 * xi as i64 + rng.range_i64(-1, 1));
+            }
+            let en = rng.range_i64(3, 6);
+            let plain = simplify_points_int(&x, &f, en, 2, None);
+            assert_eq!(simplify_points_int(&x, &f, en, 2, Some((7, 1))), plain);
+            let ff: Vec<f64> = f.iter().map(|&v| v as f64).collect();
+            let plain = simplify_points_float(&x, &ff, en as f64, 2.0, None);
+            assert_eq!(
+                simplify_points_float(&x, &ff, en as f64, 2.0, Some((7.0, 1.0))),
+                plain
+            );
+        }
+    }
+
+    #[test]
+    fn test_step_band_keeps_a_knot_where_drifts_add_up() {
+        // each segment drifts by +2 against the rate 10/1; the cone (tol 5/2) takes the whole
+        // straight line, but the band (|drift| < 2*en/ed = 5) caps a chord at two segments
+        let x = [0u64, 10, 20, 30, 40];
+        let f = [0i64, 102, 204, 306, 408];
+        assert_eq!(
+            simplify_points_int(&x, &f, 5, 2, None),
+            [true, false, false, false, true]
+        );
+        assert_eq!(
+            simplify_points_int(&x, &f, 5, 2, Some((10, 1))),
+            [true, false, true, false, true]
+        );
+        let ff = f.map(|v| v as f64);
+        assert_eq!(
+            simplify_points_float(&x, &ff, 2.5, 1.0, Some((10.0, 1.0))),
+            [true, false, true, false, true]
+        );
+    }
+
+    #[test]
+    fn test_step_band_rejects_a_chord_exactly_on_the_bound() {
+        // drift over (0, 2) is exactly 2*en/ed = 5 -> rejected; 4 -> accepted
+        let x = [0u64, 1, 2];
+        assert_eq!(
+            simplify_points_int(&x, &[0i64, 10, 25], 5, 2, Some((10, 1))),
+            [true, true, true]
+        );
+        assert_eq!(
+            simplify_points_int(&x, &[0i64, 10, 24], 5, 2, Some((10, 1))),
+            [true, false, true]
+        );
+        // a non-unit denominator: rate 21/2, drift (sd*dy - sn*dx)/sd = (2*26 - 42)/2 = 5
+        assert_eq!(
+            simplify_points_int(&x, &[0i64, 11, 26], 5, 2, Some((21, 2))),
+            [true, true, true]
+        );
+        assert_eq!(
+            simplify_points_float(&x, &[0.0, 10.0, 25.0], 5.0, 2.0, Some((10.0, 1.0))),
+            [true, true, true]
+        );
+    }
+
+    #[test]
+    fn test_step_band_never_checks_consecutive_pairs() {
+        // a jump far off the rate between neighbours is a discontinuity, not a chord: it
+        // survives as is, and the chords on either side of it still thin
+        let x = [0u64, 10, 20, 21, 31, 41];
+        let f = [0i64, 100, 200, 10_000, 10_100, 10_200];
+        assert_eq!(
+            simplify_points_int(&x, &f, 1, 2, Some((10, 1))),
+            [true, false, true, true, false, true]
+        );
+        // two points only: nothing to drop, nothing to check
+        assert_eq!(
+            simplify_points_int(&[0, 1], &[0, 1_000], 0, 1, Some((1, 1))),
+            [true, true]
         );
     }
 

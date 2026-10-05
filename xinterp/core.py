@@ -235,7 +235,7 @@ def _check_points(x, f):
     return x, f
 
 
-def simplify_points(x, f, en, ed):
+def simplify_points(x, f, en, ed, sn=None, sd=None):
     """
     Drop tie points already described, to within `en / ed`, by their surviving
     neighbours.
@@ -258,6 +258,16 @@ def simplify_points(x, f, en, ed):
         *reconstructed* value's distance from the original by `tol` ticks instead, pass
         `en / ed = tol + 1/2`: the reconstruction rounds to the nearest tick, so a chord
         within half a tick of an exact match is exact once rounded.
+    sn, sd : numbers, optional
+        A step `sn / sd` every thinned chord must also honour, given together or not at
+        all. Each chord between consecutive kept points that drops at least one point
+        must then fit a line of slope `sn / sd` within the same tolerance, both ends
+        within `en / ed` of it: ``|(f_j - f_i) - sn / sd * (x_j - x_i)| < 2 * en / ed``.
+        Consecutive input pairs are never constrained, since they cannot be removed: if
+        every input pair more than one index apart honours the step, every output chord
+        does. Same convention as the step family's `num`/`den`: `sd` a strictly positive
+        integer, `sn` an integer (a `timedelta64` is taken in `f`'s unit), and `sd = 1`
+        for floating `f`, where `sn` is the rate itself.
 
     Returns
     -------
@@ -265,13 +275,38 @@ def simplify_points(x, f, en, ed):
         Which of `x`/`f` survive, same length as `x`.
     """
     x, f = _check_points(x, f)
+    if (sn is None) != (sd is None):
+        raise ValueError("sn and sd must be given together")
+    if sd is not None and not sd > 0:
+        raise ValueError("sd must be positive")
+    if isinstance(sn, np.timedelta64):
+        if not (
+            np.issubdtype(f.dtype, np.datetime64)
+            or np.issubdtype(f.dtype, np.timedelta64)
+        ):
+            raise ValueError("a timedelta64 sn needs datetime64 or timedelta64 f")
+        unit = np.datetime_data(f.dtype)[0]
+        converted = sn.astype(f"m8[{unit}]")
+        if converted != sn:
+            raise ValueError(f"sn is not a whole number of {unit}")
+        sn = converted.astype("i8")
     if np.issubdtype(f.dtype, np.integer) or np.issubdtype(f.dtype, np.datetime64):
+        step = None
+        if sn is not None:
+            if not (int(sn) == sn and int(sd) == sd):
+                raise ValueError("sn and sd must be integers for integer f")
+            step = (int(sn), int(sd))
         return rust.simplify_points_int(
-            x.astype("u8"), f.astype("i8"), int(en), int(ed)
+            x.astype("u8"), f.astype("i8"), int(en), int(ed), step
         )
     elif np.issubdtype(f.dtype, np.floating):
+        step = None
+        if sn is not None:
+            if not sd == 1:
+                raise ValueError("sd must be 1 for floating f: no exact rate exists")
+            step = (float(sn), 1.0)
         return rust.simplify_points_float(
-            x.astype("u8"), f.astype("f8"), float(en), float(ed)
+            x.astype("u8"), f.astype("f8"), float(en), float(ed), step
         )
     else:
         raise ValueError("f dtype must be either integer, floating or datetime")

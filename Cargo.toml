@@ -1,6 +1,6 @@
 [package]
 name = "xinterp"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Exact index-to-value interpolation, backed by a Rust extension"
 license = "GPL-3.0-or-later"

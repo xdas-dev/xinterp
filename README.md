@@ -144,6 +144,25 @@ recon = forward_points(xp, xp[keep], fp[keep])
 assert np.abs((recon - fp).astype("i8")).max() <= 2  # the promised bound
 ```
 
+To thin an axis that also declares a rate, pass the step as `sn, sd`: every
+chord that drops a knot must then also fit that slope within the same tolerance,
+so the drifts of the segments it replaces cannot add up past it. Neighbouring
+knots are never constrained -- dropping nothing, they cannot break the rate:
+
+```python
+import numpy as np
+from xinterp import simplify_points
+
+xp = np.array([0, 10, 20, 30, 40])
+fp = np.array([0, 102, 204, 306, 408], dtype="datetime64[s]")  # 2 s fast per 10
+
+# alone, one chord fits within 2 ticks, but drifts 8 s from 10 s per index
+assert np.array_equal(simplify_points(xp, fp, 5, 2), [1, 0, 0, 0, 1])
+
+keep = simplify_points(xp, fp, 5, 2, np.timedelta64(10, "s"), 1)
+assert np.array_equal(keep, [True, False, True, False, True])  # drift <= 4 s
+```
+
 `simplify_step` is the twin for rate-described segments: it fuses consecutive
 runs whose declared step agrees, and re-anchors each survivor. It returns the
 keep mask alongside the re-anchored tie values:

@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - Unreleased
+
+### Added
+
+- `simplify_points(..., sn=, sd=)` -- thins knots without breaking a declared
+  rate `sn / sd`. Every chord that drops at least one knot must also fit a line
+  of that slope within the same tolerance, `|df - (sn / sd) * dx| < 2 * en / ed`, so a
+  merged chord can no longer sum the drifts of the segments it replaces past the
+  budget. Consecutive knots are never constrained. `sn`/`sd` follow the step
+  family's `num`/`den`: `sd > 0`, a `timedelta64` `sn` is taken in `f`'s unit, and
+  `sd = 1` for floating values. Still one pass, `O(n)`, exact for integers; without
+  `sn`/`sd` the result is unchanged.
+
 ## [0.2.0] - 2026-08-30
 
 The release that turns a two-function package into two families of them. The
@@ -85,5 +98,6 @@ Initial published behaviour: `forward` and `inverse` over explicit knots, exact
 for big integer values including nanosecond `datetime64`, with `None`, `nearest`,
 `ffill` and `bfill` matching rules.
 
+[0.2.1]: https://github.com/xdas-dev/xinterp/compare/0.2.0...HEAD
 [0.2.0]: https://github.com/xdas-dev/xinterp/compare/0.1.3...0.2.0
 [0.1.3]: https://github.com/xdas-dev/xinterp/releases/tag/0.1.3

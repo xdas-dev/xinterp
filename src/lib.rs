@@ -220,30 +220,34 @@ mod rust {
     }
 
     #[pyfunction]
+    #[pyo3(signature = (x, f, en, ed, step=None))]
     fn simplify_points_int<'py>(
         py: Python<'py>,
         x: PyReadonlyArray1<'py, u64>,
         f: PyReadonlyArray1<'py, i64>,
         en: i64,
         ed: i64,
+        step: Option<(i64, u64)>,
     ) -> PyResult<Bound<'py, PyArray1<bool>>> {
         let x = x.as_slice().expect("x must be contiguous");
         let f = f.as_slice().expect("f must be contiguous");
-        let keep = py.detach(|| crate::simplify::simplify_points_int(x, f, en, ed));
+        let keep = py.detach(|| crate::simplify::simplify_points_int(x, f, en, ed, step));
         Ok(Array1::from_vec(keep).into_pyarray(py))
     }
 
     #[pyfunction]
+    #[pyo3(signature = (x, f, en, ed, step=None))]
     fn simplify_points_float<'py>(
         py: Python<'py>,
         x: PyReadonlyArray1<'py, u64>,
         f: PyReadonlyArray1<'py, f64>,
         en: f64,
         ed: f64,
+        step: Option<(f64, f64)>,
     ) -> PyResult<Bound<'py, PyArray1<bool>>> {
         let x = x.as_slice().expect("x must be contiguous");
         let f = f.as_slice().expect("f must be contiguous");
-        let keep = py.detach(|| crate::simplify::simplify_points_float(x, f, en, ed));
+        let keep = py.detach(|| crate::simplify::simplify_points_float(x, f, en, ed, step));
         Ok(Array1::from_vec(keep).into_pyarray(py))
     }
 
